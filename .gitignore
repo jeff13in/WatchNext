@@ -1,0 +1,39 @@
+*.iml
+.gradle
+/local.properties
+/.idea/caches
+/.idea/libraries
+/.idea/modules.xml
+/.idea/workspace.xml
+/.idea/navEditor.xml
+/.idea/assetWizardSettings.xml
+.DS_Store
+/build
+/captures
+.externalNativeBuild
+.cxx
+local.properties
+
+# APK / AAB output
+*.apk
+*.aab
+*.ap_
+
+# Keystore files
+*.jks
+*.keystore
+
+# Google Services
+google-services.json
+
+# App-level build output
+app/build/
+
+# Log files
+*.log
+
+# Project files to exclude
+Drawing_4.jpg
+MEMORY.md
+.idea/
+New Screens.txt
