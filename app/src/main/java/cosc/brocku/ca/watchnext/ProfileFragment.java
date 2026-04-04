@@ -43,18 +43,22 @@ public class ProfileFragment extends Fragment {
         }
 
         Button btnSignInAnother = view.findViewById(R.id.btn_sign_in_another);
-        btnSignInAnother.setOnClickListener(v -> {
-            // Sign out from Firebase and clear session
-            FirebaseAuth.getInstance().signOut();
-            UserSession.get().clear();
+        btnSignInAnother.setOnClickListener(v -> signOut());
 
-            SharedPreferences prefs = requireContext()
-                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-            prefs.edit().putBoolean("is_logged_in", false).apply();
+        Button btnSignOut = view.findViewById(R.id.btn_sign_out);
+        btnSignOut.setOnClickListener(v -> signOut());
+    }
 
-            Intent intent = new Intent(requireContext(), LoginActivity.class);
-            intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
-            startActivity(intent);
-        });
+    private void signOut() {
+        FirebaseAuth.getInstance().signOut();
+        UserSession.get().clear();
+
+        SharedPreferences prefs = requireContext()
+                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs.edit().putBoolean("is_logged_in", false).apply();
+
+        Intent intent = new Intent(requireContext(), LoginActivity.class);
+        intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
+        startActivity(intent);
     }
 }
