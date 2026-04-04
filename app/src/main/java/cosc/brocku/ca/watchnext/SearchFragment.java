@@ -1,5 +1,6 @@
 package cosc.brocku.ca.watchnext;
 
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -35,7 +36,16 @@ public class SearchFragment extends Fragment {
 
         RecyclerView rv = view.findViewById(R.id.rv_search_results);
         rv.setLayoutManager(new GridLayoutManager(requireContext(), 2));
-        adapter = new MovieAdapter(new ArrayList<>());
+        adapter = new MovieAdapter(new ArrayList<>(), movie -> {
+            Intent intent = new Intent(requireContext(), MovieDetailActivity.class);
+            intent.putExtra("movie_id", movie.getId());
+            String mediaType = movie.getMediaType();
+            if (mediaType == null || mediaType.isEmpty()) {
+                mediaType = "movie";
+            }
+            intent.putExtra("media_type", mediaType);
+            startActivity(intent);
+        });
         rv.setAdapter(adapter);
 
         SearchView searchView = view.findViewById(R.id.search_all);
@@ -45,6 +55,7 @@ public class SearchFragment extends Fragment {
                 search(query);
                 return true;
             }
+
             @Override
             public boolean onQueryTextChange(String newText) {
                 if (newText.isEmpty()) {
@@ -63,8 +74,8 @@ public class SearchFragment extends Fragment {
             public void onResponse(@NonNull Call<TmdbResponse> call,
                                    @NonNull Response<TmdbResponse> response) {
                 if (!isAdded()) return;
+
                 if (response.isSuccessful() && response.body() != null) {
-                    // Filter out "person" results — show only movies and TV shows
                     List<TmdbMovie> results = new ArrayList<>();
                     for (TmdbMovie item : response.body().getResults()) {
                         String type = item.getMediaType();
@@ -73,8 +84,11 @@ public class SearchFragment extends Fragment {
                         }
                     }
                     adapter.updateMovies(results);
+                } else {
+                    Toast.makeText(requireContext(), "Search failed", Toast.LENGTH_SHORT).show();
                 }
             }
+
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (isAdded()) {

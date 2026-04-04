@@ -1,6 +1,7 @@
 package cosc.brocku.ca.watchnext;
 
 import android.app.AlertDialog;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -42,7 +43,16 @@ public class HomeFragment extends Fragment {
 
         RecyclerView rv = view.findViewById(R.id.rv_movies);
         rv.setLayoutManager(new GridLayoutManager(requireContext(), 2));
-        adapter = new MovieAdapter(new ArrayList<>());
+        adapter = new MovieAdapter(new ArrayList<>(), movie -> {
+            Intent intent = new Intent(requireContext(), MovieDetailActivity.class);
+            intent.putExtra("movie_id", movie.getId());
+            String mediaType = movie.getMediaType();
+            if (mediaType == null || mediaType.isEmpty()) {
+                mediaType = "movie";
+            }
+            intent.putExtra("media_type", mediaType);
+            startActivity(intent);
+        });
         rv.setAdapter(adapter);
 
         loadPopularMovies();
@@ -60,6 +70,7 @@ public class HomeFragment extends Fragment {
                     showCategoryDialog();
                 }
             }
+
             @Override public void onTabUnselected(TabLayout.Tab tab) {}
             @Override public void onTabReselected(TabLayout.Tab tab) {
                 if (tab.getPosition() == 2) showCategoryDialog();
@@ -74,8 +85,11 @@ public class HomeFragment extends Fragment {
                                    @NonNull Response<TmdbResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     adapter.updateMovies(response.body().getResults());
+                } else if (isAdded()) {
+                    Toast.makeText(requireContext(), "Failed to load movies", Toast.LENGTH_SHORT).show();
                 }
             }
+
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (isAdded()) {
@@ -92,8 +106,11 @@ public class HomeFragment extends Fragment {
                                    @NonNull Response<TmdbResponse> response) {
                 if (response.isSuccessful() && response.body() != null) {
                     adapter.updateMovies(response.body().getResults());
+                } else if (isAdded()) {
+                    Toast.makeText(requireContext(), "Failed to load TV shows", Toast.LENGTH_SHORT).show();
                 }
             }
+
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (isAdded()) {
@@ -124,7 +141,7 @@ public class HomeFragment extends Fragment {
                 if (response.isSuccessful() && response.body() != null) {
                     combined.addAll(response.body().getResults());
                 }
-                // Fetch TV shows for the genre after movies load
+
                 TmdbClient.getService().discoverTv(tvGenreId).enqueue(new Callback<TmdbResponse>() {
                     @Override
                     public void onResponse(@NonNull Call<TmdbResponse> call2,
@@ -136,6 +153,7 @@ public class HomeFragment extends Fragment {
                             adapter.updateMovies(combined);
                         }
                     }
+
                     @Override
                     public void onFailure(@NonNull Call<TmdbResponse> call2, @NonNull Throwable t) {
                         if (isAdded()) {
@@ -144,6 +162,7 @@ public class HomeFragment extends Fragment {
                     }
                 });
             }
+
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (isAdded()) {

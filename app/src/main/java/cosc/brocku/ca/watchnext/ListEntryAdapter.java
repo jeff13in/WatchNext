@@ -46,15 +46,14 @@ public class ListEntryAdapter extends RecyclerView.Adapter<ListEntryAdapter.View
         holder.status.setText(entry.getStatusDisplay());
 
         holder.btnUpdate.setOnClickListener(v -> {
-            String newStatus = "watching".equals(entry.getStatus()) ? "completed" : "watching";
-            entry.setStatus(newStatus);
+            if (entry.getType().equals("TV Show")) {
+                entry.setEpisode(entry.getEpisode() + 1);
+            } else {
+                String newStatus = entry.getStatus().equals("Watching") ? "Finished" : "Watching";
+                entry.setStatus(newStatus);
+                entry.setPlaylist(newStatus);
+            }
             holder.status.setText(entry.getStatusDisplay());
-            SupabaseClient.updateWatchlistStatus(entry.getId(), newStatus, new SupabaseClient.Callback() {
-                @Override public void onSuccess() {}
-                @Override public void onFailure(String error) {
-                    Toast.makeText(v.getContext(), "Failed to update", Toast.LENGTH_SHORT).show();
-                }
-            });
             listener.onEntryChanged();
         });
 
@@ -65,28 +64,18 @@ public class ListEntryAdapter extends RecyclerView.Adapter<ListEntryAdapter.View
                     .setItems(options, (dialog, which) -> {
                         switch (which) {
                             case 0:
-                                SupabaseClient.removeFromWatchlist(entry.getId(), new SupabaseClient.Callback() {
-                                    @Override public void onSuccess() {}
-                                    @Override public void onFailure(String e) {}
-                                });
                                 entries.remove(position);
                                 notifyItemRemoved(position);
                                 listener.onEntryChanged();
                                 break;
                             case 1:
-                                entry.setStatus("watching");
-                                SupabaseClient.updateWatchlistStatus(entry.getId(), "watching", new SupabaseClient.Callback() {
-                                    @Override public void onSuccess() {}
-                                    @Override public void onFailure(String e) {}
-                                });
+                                entry.setStatus("Watching");
+                                entry.setPlaylist("Watching");
                                 listener.onEntryChanged();
                                 break;
                             case 2:
-                                entry.setStatus("completed");
-                                SupabaseClient.updateWatchlistStatus(entry.getId(), "completed", new SupabaseClient.Callback() {
-                                    @Override public void onSuccess() {}
-                                    @Override public void onFailure(String e) {}
-                                });
+                                entry.setStatus("Finished");
+                                entry.setPlaylist("Finished");
                                 listener.onEntryChanged();
                                 break;
                         }

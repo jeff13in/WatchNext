@@ -7,7 +7,6 @@ val localProps = Properties().apply {
 
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.google.services)
 }
 
 android {
@@ -29,16 +28,6 @@ android {
             "String",
             "TMDB_ACCESS_TOKEN",
             "\"${localProps.getProperty("tmdb.access.token", "")}\""
-        )
-        buildConfigField(
-            "String",
-            "SUPABASE_URL",
-            "\"${localProps.getProperty("supabase.url", "")}\""
-        )
-        buildConfigField(
-            "String",
-            "SUPABASE_KEY",
-            "\"${localProps.getProperty("supabase.key", "")}\""
         )
     }
 
@@ -72,10 +61,6 @@ dependencies {
     implementation(libs.glide)
     implementation(libs.okhttp)
     implementation(libs.picasso)
-    implementation(platform(libs.firebase.bom))
-    implementation(libs.firebase.auth)
-    implementation(libs.firebase.firestore)
-    implementation(libs.firebase.analytics)
     testImplementation(libs.junit)
     androidTestImplementation(libs.ext.junit)
     androidTestImplementation(libs.espresso.core)

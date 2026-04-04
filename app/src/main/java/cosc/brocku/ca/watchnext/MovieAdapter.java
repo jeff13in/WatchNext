@@ -2,16 +2,12 @@ package cosc.brocku.ca.watchnext;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
-import android.os.Handler;
-import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
-import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
-import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import java.security.SecureRandom;
@@ -27,9 +23,13 @@ import okhttp3.Response;
 
 public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder> {
 
-    private final List<TmdbMovie> movies;
+    public interface OnMovieClickListener {
+        void onMovieClick(TmdbMovie movie);
+    }
 
-    // OkHttpClient with trust-all SSL — needed for API 23 emulator's outdated cert store
+    private final List<TmdbMovie> movies;
+    private final OnMovieClickListener listener;
+
     private static final OkHttpClient imageClient = buildImageClient();
 
     private static OkHttpClient buildImageClient() {
@@ -52,8 +52,9 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder> 
         }
     }
 
-    public MovieAdapter(List<TmdbMovie> movies) {
+    public MovieAdapter(List<TmdbMovie> movies, OnMovieClickListener listener) {
         this.movies = movies;
+        this.listener = listener;
     }
 
     public void updateMovies(List<TmdbMovie> newMovies) {
@@ -78,36 +79,10 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder> 
         holder.genre.setText(movie.getDisplayGenre());
         holder.rating.setText(String.format("★ %.1f", movie.getVoteAverage()));
 
-        holder.btnAddWatchlist.setOnClickListener(v -> {
-            int userId = UserSession.get().getSupabaseUserId();
-            if (userId == -1) {
-                Toast.makeText(v.getContext(), "Please wait, loading profile...", Toast.LENGTH_SHORT).show();
-                return;
+        holder.itemView.setOnClickListener(v -> {
+            if (listener != null) {
+                listener.onMovieClick(movie);
             }
-            Handler main = new Handler(Looper.getMainLooper());
-            holder.btnAddWatchlist.setEnabled(false);
-            SupabaseClient.addToWatchlist(
-                userId,
-                String.valueOf(movie.getId()),
-                movie.getDisplayTitle(),
-                movie.getPosterUrl(),
-                movie.getMediaType() != null ? movie.getMediaType() : "movie",
-                new SupabaseClient.Callback() {
-                    @Override public void onSuccess() {
-                        main.post(() -> {
-                            Toast.makeText(v.getContext(), "Added to watchlist!", Toast.LENGTH_SHORT).show();
-                            holder.btnAddWatchlist.setText("✓ Added");
-                        });
-                    }
-                    @Override public void onFailure(String error) {
-                        Log.e("Supabase", "addToWatchlist failed: " + error);
-                        main.post(() -> {
-                            holder.btnAddWatchlist.setEnabled(true);
-                            Toast.makeText(v.getContext(), "Failed: " + error, Toast.LENGTH_LONG).show();
-                        });
-                    }
-                }
-            );
         });
 
         String posterUrl = movie.getPosterUrl();
@@ -145,15 +120,13 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder> 
         TextView title;
         TextView genre;
         TextView rating;
-        Button btnAddWatchlist;
 
         ViewHolder(View itemView) {
             super(itemView);
-            poster           = itemView.findViewById(R.id.view_poster);
-            title            = itemView.findViewById(R.id.tv_title);
-            genre            = itemView.findViewById(R.id.tv_genre);
-            rating           = itemView.findViewById(R.id.tv_rating);
-            btnAddWatchlist  = itemView.findViewById(R.id.btn_add_watchlist);
+            poster = itemView.findViewById(R.id.view_poster);
+            title = itemView.findViewById(R.id.tv_title);
+            genre = itemView.findViewById(R.id.tv_genre);
+            rating = itemView.findViewById(R.id.tv_rating);
         }
     }
 }

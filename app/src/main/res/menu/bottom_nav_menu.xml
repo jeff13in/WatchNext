@@ -1,19 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <menu xmlns:android="http://schemas.android.com/apk/res/android">
+
     <item
         android:id="@+id/nav_home"
         android:icon="@drawable/ic_home"
         android:title="Home" />
+
     <item
         android:id="@+id/nav_watch_days"
         android:icon="@drawable/ic_calendar"
-        android:title="Watch Days" />
+        android:title="Days" />
+
     <item
         android:id="@+id/nav_lists"
         android:icon="@drawable/ic_list"
         android:title="Lists" />
+
+    <item
+        android:id="@+id/nav_feedback"
+        android:icon="@drawable/ic_feedback"
+        android:title="Feedback" />
+
     <item
         android:id="@+id/nav_search"
         android:icon="@drawable/ic_search"
         android:title="Search" />
+
 </menu>
