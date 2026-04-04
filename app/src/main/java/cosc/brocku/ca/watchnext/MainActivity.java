@@ -1,7 +1,6 @@
 package cosc.brocku.ca.watchnext;
 
-import android.content.Context;
-import android.content.SharedPreferences;
+import android.content.Intent;
 import android.os.Bundle;
 import android.view.MenuItem;
 import android.widget.TextView;
@@ -13,10 +12,12 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "watchnext_prefs";
     private DrawerLayout drawerLayout;
 
     @Override
@@ -35,11 +36,13 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout.addDrawerListener(toggle);
         toggle.syncState();
 
-        // Update drawer header with user email
+        // Update drawer header with Firebase user email
         NavigationView navView = findViewById(R.id.nav_view);
         TextView headerEmail = navView.getHeaderView(0).findViewById(R.id.header_email);
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        headerEmail.setText(prefs.getString("email", "user@example.com"));
+        FirebaseUser currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        if (currentUser != null) {
+            headerEmail.setText(currentUser.getEmail());
+        }
 
         // Drawer navigation
         navView.setNavigationItemSelectedListener(item -> {
@@ -51,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
                 loadFragment(new ListsFragment(), "Lists");
             } else if (id == R.id.drawer_preferences) {
                 loadFragment(new PreferencesFragment(), "Preferences");
+            } else if (id == R.id.drawer_sign_out) {
+                UserSession.get().clear();
+                FirebaseAuth.getInstance().signOut();
+                startActivity(new Intent(this, LoginActivity.class));
+                finish();
             }
             return true;
         });

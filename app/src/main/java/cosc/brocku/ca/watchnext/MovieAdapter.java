@@ -2,12 +2,16 @@ package cosc.brocku.ca.watchnext;
 
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.os.Handler;
+import android.os.Looper;
 import android.util.Log;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.Button;
 import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.recyclerview.widget.RecyclerView;
 import java.security.SecureRandom;
@@ -74,6 +78,38 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder> 
         holder.genre.setText(movie.getDisplayGenre());
         holder.rating.setText(String.format("★ %.1f", movie.getVoteAverage()));
 
+        holder.btnAddWatchlist.setOnClickListener(v -> {
+            int userId = UserSession.get().getSupabaseUserId();
+            if (userId == -1) {
+                Toast.makeText(v.getContext(), "Please wait, loading profile...", Toast.LENGTH_SHORT).show();
+                return;
+            }
+            Handler main = new Handler(Looper.getMainLooper());
+            holder.btnAddWatchlist.setEnabled(false);
+            SupabaseClient.addToWatchlist(
+                userId,
+                String.valueOf(movie.getId()),
+                movie.getDisplayTitle(),
+                movie.getPosterUrl(),
+                movie.getMediaType() != null ? movie.getMediaType() : "movie",
+                new SupabaseClient.Callback() {
+                    @Override public void onSuccess() {
+                        main.post(() -> {
+                            Toast.makeText(v.getContext(), "Added to watchlist!", Toast.LENGTH_SHORT).show();
+                            holder.btnAddWatchlist.setText("✓ Added");
+                        });
+                    }
+                    @Override public void onFailure(String error) {
+                        Log.e("Supabase", "addToWatchlist failed: " + error);
+                        main.post(() -> {
+                            holder.btnAddWatchlist.setEnabled(true);
+                            Toast.makeText(v.getContext(), "Failed: " + error, Toast.LENGTH_LONG).show();
+                        });
+                    }
+                }
+            );
+        });
+
         String posterUrl = movie.getPosterUrl();
         holder.poster.setImageBitmap(null);
         holder.poster.setBackgroundColor(
@@ -109,13 +145,15 @@ public class MovieAdapter extends RecyclerView.Adapter<MovieAdapter.ViewHolder> 
         TextView title;
         TextView genre;
         TextView rating;
+        Button btnAddWatchlist;
 
         ViewHolder(View itemView) {
             super(itemView);
-            poster = itemView.findViewById(R.id.view_poster);
-            title = itemView.findViewById(R.id.tv_title);
-            genre = itemView.findViewById(R.id.tv_genre);
-            rating = itemView.findViewById(R.id.tv_rating);
+            poster           = itemView.findViewById(R.id.view_poster);
+            title            = itemView.findViewById(R.id.tv_title);
+            genre            = itemView.findViewById(R.id.tv_genre);
+            rating           = itemView.findViewById(R.id.tv_rating);
+            btnAddWatchlist  = itemView.findViewById(R.id.btn_add_watchlist);
         }
     }
 }
