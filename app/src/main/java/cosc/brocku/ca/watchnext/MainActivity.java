@@ -13,6 +13,8 @@ import androidx.fragment.app.Fragment;
 import com.google.android.material.appbar.MaterialToolbar;
 import com.google.android.material.bottomnavigation.BottomNavigationView;
 import com.google.android.material.navigation.NavigationView;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -40,6 +42,25 @@ public class MainActivity extends AppCompatActivity {
         TextView headerEmail = navView.getHeaderView(0).findViewById(R.id.header_email);
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         headerEmail.setText(prefs.getString("email", "user@example.com"));
+
+        // Load UserSession from Supabase if not already loaded
+        if (!UserSession.get().isLoaded()) {
+            FirebaseUser firebaseUser = FirebaseAuth.getInstance().getCurrentUser();
+            if (firebaseUser != null) {
+                SupabaseClient.getUser(firebaseUser.getUid(), new SupabaseClient.DataCallback() {
+                    @Override
+                    public void onSuccess(org.json.JSONObject data) {
+                        try {
+                            int supabaseId = data.getInt("id");
+                            String email = data.getString("email");
+                            UserSession.get().set(supabaseId, firebaseUser.getUid(), email);
+                        } catch (Exception ignored) {}
+                    }
+                    @Override
+                    public void onFailure(String error) {}
+                });
+            }
+        }
 
         // Drawer navigation
         navView.setNavigationItemSelectedListener(item -> {

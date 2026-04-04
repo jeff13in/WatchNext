@@ -37,3 +37,10 @@ Drawing_4.jpg
 MEMORY.md
 .idea/
 New Screens.txt
+
+# Sensitive files
+firebase_setup.md
+*.env
+.env.*
+app/google-services.json
+keystore.properties

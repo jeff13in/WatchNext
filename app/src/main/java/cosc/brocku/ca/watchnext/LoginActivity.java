@@ -11,6 +11,8 @@ import com.google.android.material.button.MaterialButton;
 import com.google.android.material.tabs.TabLayout;
 import com.google.android.material.textfield.TextInputEditText;
 import com.google.android.material.textfield.TextInputLayout;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 
 public class LoginActivity extends AppCompatActivity {
 
@@ -19,15 +21,18 @@ public class LoginActivity extends AppCompatActivity {
     private TextInputLayout tilConfirmPassword;
     private MaterialButton btnAction;
     private boolean isSignIn = true;
+    private FirebaseAuth auth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
 
+        auth = FirebaseAuth.getInstance();
+
         // Skip login if already logged in
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        if (prefs.getBoolean("is_logged_in", false)) {
-            startMain();
+        if (prefs.getBoolean("is_logged_in", false) && auth.getCurrentUser() != null) {
+            loadUserAndStart(auth.getCurrentUser(), prefs);
             return;
         }
 
@@ -77,12 +82,77 @@ public class LoginActivity extends AppCompatActivity {
             }
         }
 
-        prefs.edit()
-                .putBoolean("is_logged_in", true)
-                .putString("email", email)
-                .apply();
+        btnAction.setEnabled(false);
 
-        startMain();
+        if (isSignIn) {
+            auth.signInWithEmailAndPassword(email, password)
+                    .addOnSuccessListener(result -> {
+                        FirebaseUser user = result.getUser();
+                        if (user != null) loadUserAndStart(user, prefs);
+                    })
+                    .addOnFailureListener(e -> {
+                        btnAction.setEnabled(true);
+                        Toast.makeText(this, "Sign in failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+        } else {
+            auth.createUserWithEmailAndPassword(email, password)
+                    .addOnSuccessListener(result -> {
+                        FirebaseUser user = result.getUser();
+                        if (user == null) return;
+                        SupabaseClient.registerUser(user.getUid(), email, new SupabaseClient.Callback() {
+                            @Override public void onSuccess() {
+                                loadUserAndStart(user, prefs);
+                            }
+                            @Override public void onFailure(String error) {
+                                runOnUiThread(() -> {
+                                    btnAction.setEnabled(true);
+                                    Toast.makeText(LoginActivity.this,
+                                            "Account created but DB sync failed: " + error,
+                                            Toast.LENGTH_LONG).show();
+                                    // Still proceed — user is authenticated
+                                    loadUserAndStart(user, prefs);
+                                });
+                            }
+                        });
+                    })
+                    .addOnFailureListener(e -> {
+                        btnAction.setEnabled(true);
+                        Toast.makeText(this, "Sign up failed: " + e.getMessage(), Toast.LENGTH_LONG).show();
+                    });
+        }
+    }
+
+    private void loadUserAndStart(FirebaseUser firebaseUser, SharedPreferences prefs) {
+        SupabaseClient.getUser(firebaseUser.getUid(), new SupabaseClient.DataCallback() {
+            @Override
+            public void onSuccess(org.json.JSONObject data) {
+                try {
+                    int supabaseId = data.getInt("id");
+                    String email = data.getString("email");
+                    UserSession.get().set(supabaseId, firebaseUser.getUid(), email);
+                    runOnUiThread(() -> {
+                        prefs.edit()
+                                .putBoolean("is_logged_in", true)
+                                .putString("email", email)
+                                .apply();
+                        startMain();
+                    });
+                } catch (Exception e) {
+                    runOnUiThread(() -> startMain());
+                }
+            }
+            @Override
+            public void onFailure(String error) {
+                // User not in DB yet (e.g. first sign-in after sign-up race), proceed anyway
+                runOnUiThread(() -> {
+                    prefs.edit()
+                            .putBoolean("is_logged_in", true)
+                            .putString("email", firebaseUser.getEmail())
+                            .apply();
+                    startMain();
+                });
+            }
+        });
     }
 
     private void startMain() {

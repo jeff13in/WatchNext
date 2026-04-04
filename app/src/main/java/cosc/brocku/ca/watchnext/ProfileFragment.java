@@ -12,6 +12,7 @@ import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
+import com.google.firebase.auth.FirebaseAuth;
 
 public class ProfileFragment extends Fragment {
 
@@ -29,16 +30,28 @@ public class ProfileFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        SharedPreferences prefs = requireContext()
-                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        String email = prefs.getString("email", "user@example.com");
-
         TextView tvEmail = view.findViewById(R.id.tv_profile_email);
-        tvEmail.setText(email);
+
+        // Use UserSession if loaded, fall back to SharedPreferences
+        UserSession session = UserSession.get();
+        if (session.isLoaded()) {
+            tvEmail.setText(session.getEmail());
+        } else {
+            SharedPreferences prefs = requireContext()
+                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+            tvEmail.setText(prefs.getString("email", "user@example.com"));
+        }
 
         Button btnSignInAnother = view.findViewById(R.id.btn_sign_in_another);
         btnSignInAnother.setOnClickListener(v -> {
+            // Sign out from Firebase and clear session
+            FirebaseAuth.getInstance().signOut();
+            UserSession.get().clear();
+
+            SharedPreferences prefs = requireContext()
+                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
             prefs.edit().putBoolean("is_logged_in", false).apply();
+
             Intent intent = new Intent(requireContext(), LoginActivity.class);
             intent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TASK);
             startActivity(intent);
