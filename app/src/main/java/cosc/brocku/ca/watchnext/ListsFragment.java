@@ -1,13 +1,12 @@
 package cosc.brocku.ca.watchnext;
 
 import android.app.AlertDialog;
-import android.content.Context;
-import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.EditText;
+import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.appcompat.widget.SearchView;
@@ -16,11 +15,10 @@ import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.android.material.tabs.TabLayout;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.HashSet;
 import java.util.List;
-import java.util.Set;
 
 public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryChangedListener {
 
@@ -79,6 +77,8 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
 
         FloatingActionButton fab = view.findViewById(R.id.fab_add_playlist);
         fab.setOnClickListener(v -> showAddPlaylistDialog());
+
+        loadWatchlistFromSupabase();
     }
 
     private void showAddPlaylistDialog() {
@@ -122,19 +122,47 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
     }
 
     private void buildEntries() {
-        allEntries = new ArrayList<>(Arrays.asList(
-                new ListEntry("Breaking Bad", "TV Show", "Watching", 5, "Watching"),
-                new ListEntry("Stranger Things", "TV Show", "Watching", 1, "Watching"),
-                new ListEntry("Ozark", "TV Show", "Watching", 2, "Watching"),
-                new ListEntry("Inception", "Movie", "Finished", -1, "Finished"),
-                new ListEntry("The Dark Knight", "Movie", "Finished", -1, "Finished"),
-                new ListEntry("Game of Thrones", "TV Show", "Finished", 6, "Finished")
-        ));
+        allEntries = new ArrayList<>();
+    }
 
-        SharedPreferences prefs = requireContext().getSharedPreferences("watchnext_prefs", Context.MODE_PRIVATE);
-        Set<String> saved = prefs.getStringSet("saved_watchlist", new HashSet<>());
-        for (String title : saved) {
-            allEntries.add(new ListEntry(title, "Movie", "Watching", -1, "Watching"));
+    private void loadWatchlistFromSupabase() {
+        UserSession session = UserSession.get();
+        if (!session.isLoaded()) {
+            Toast.makeText(requireContext(), "Loading user session...", Toast.LENGTH_SHORT).show();
+            return;
         }
+
+        SupabaseClient.getWatchlist(session.getSupabaseUserId(), new SupabaseClient.ListCallback() {
+            @Override
+            public void onSuccess(JSONArray data) {
+                List<ListEntry> loaded = new ArrayList<>();
+                for (int i = 0; i < data.length(); i++) {
+                    try {
+                        JSONObject item = data.getJSONObject(i);
+                        String title = item.optString("title", "Unknown");
+                        String mediaType = item.optString("media_type", "Movie");
+                        String status = item.optString("status", "Watching");
+                        int id = item.optInt("id", -1);
+                        loaded.add(new ListEntry(title, mediaType, status, -1, status));
+                    } catch (Exception ignored) {}
+                }
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() -> {
+                        allEntries.clear();
+                        allEntries.addAll(loaded);
+                        refreshList();
+                    });
+                }
+            }
+
+            @Override
+            public void onFailure(String error) {
+                if (getActivity() != null) {
+                    getActivity().runOnUiThread(() ->
+                            Toast.makeText(requireContext(), "Failed to load watchlist: " + error, Toast.LENGTH_SHORT).show()
+                    );
+                }
+            }
+        });
     }
 }

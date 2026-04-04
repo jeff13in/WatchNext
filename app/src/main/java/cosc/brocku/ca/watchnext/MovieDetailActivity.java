@@ -118,12 +118,36 @@ public class MovieDetailActivity extends AppCompatActivity {
     private void addToWatchlist() {
         if (currentDetail == null) return;
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        Set<String> watchlist = new HashSet<>(prefs.getStringSet("saved_watchlist", new HashSet<>()));
-        watchlist.add(currentDetail.getDisplayTitle());
-        prefs.edit().putStringSet("saved_watchlist", watchlist).apply();
+        UserSession session = UserSession.get();
+        if (!session.isLoaded()) {
+            Toast.makeText(this, "Please wait, loading user session...", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        Toast.makeText(this, "Added to watchlist", Toast.LENGTH_SHORT).show();
+        btnWatchlist.setEnabled(false);
+        SupabaseClient.addToWatchlist(
+                session.getSupabaseUserId(),
+                String.valueOf(currentDetail.getId()),
+                currentDetail.getDisplayTitle(),
+                currentDetail.getPosterUrl(),
+                mediaType,
+                new SupabaseClient.Callback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            btnWatchlist.setEnabled(true);
+                            Toast.makeText(MovieDetailActivity.this, "Added to watchlist", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                    @Override
+                    public void onFailure(String error) {
+                        runOnUiThread(() -> {
+                            btnWatchlist.setEnabled(true);
+                            Toast.makeText(MovieDetailActivity.this, "Failed to add: " + error, Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                }
+        );
     }
 
     private void saveFeedback(String value) {
