@@ -84,14 +84,21 @@ public class SupabaseClient {
 
     public static void addToWatchlist(int userId, String movieId, String title,
                                       String posterPath, String mediaType, Callback callback) {
+        addToWatchlist(userId, movieId, title, posterPath, mediaType, "Watching", callback);
+    }
+
+    public static void addToWatchlist(int userId, String movieId, String title,
+                                      String posterPath, String mediaType, String status,
+                                      Callback callback) {
         executor.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("user_id", userId);
                 body.put("movie_id", movieId);
                 body.put("title", title);
-                body.put("poster_path", posterPath);
+                body.put("poster_path", posterPath != null ? posterPath : "");
                 body.put("media_type", mediaType);
+                body.put("status", status);
                 post("watchlist", body, callback);
             } catch (Exception e) {
                 callback.onFailure(e.getMessage());
@@ -137,6 +144,32 @@ public class SupabaseClient {
                 callback.onFailure(e.getMessage());
             }
         });
+    }
+
+    // ── Watch History ─────────────────────────────────────────────────────────
+
+    public static void addToWatchHistory(int userId, String movieId, String title,
+                                         String mediaType, String posterPath, Callback callback) {
+        executor.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("user_id", userId);
+                body.put("movie_id", movieId);
+                body.put("title", title);
+                body.put("media_type", mediaType);
+                body.put("poster_path", posterPath != null ? posterPath : "");
+                post("watch_history", body, callback);
+            } catch (Exception e) {
+                callback.onFailure(e.getMessage());
+            }
+        });
+    }
+
+    public static void getWatchHistory(int userId, ListCallback callback) {
+        executor.execute(() -> getList(
+                "watch_history?user_id=eq." + userId + "&order=watched_at.desc",
+                callback
+        ));
     }
 
     // ── Followers ─────────────────────────────────────────────────────────────

@@ -37,5 +37,22 @@
             android:layout_margin="16dp"
             android:contentDescription="@string/add_playlist"
             app:srcCompat="@android:drawable/ic_input_add" />
+
+        <ProgressBar
+            android:id="@+id/progress_lists"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:visibility="gone" />
+
+        <TextView
+            android:id="@+id/tv_lists_empty"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_gravity="center"
+            android:text="Your watchlist is empty"
+            android:textSize="16sp"
+            android:visibility="gone" />
+
     </FrameLayout>
 </LinearLayout>

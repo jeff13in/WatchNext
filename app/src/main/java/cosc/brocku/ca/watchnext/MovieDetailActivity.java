@@ -15,8 +15,6 @@ import androidx.annotation.NonNull;
 import androidx.appcompat.app.AppCompatActivity;
 import java.io.InputStream;
 import java.net.URL;
-import java.util.HashSet;
-import java.util.Set;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -32,6 +30,7 @@ public class MovieDetailActivity extends AppCompatActivity {
     private TextView tvTitle, tvGenre, tvDate, tvRating, tvOverview;
     private Button btnWatchlist, btnLike, btnDislike, btnTrailer;
 
+    private Button btnAlreadyWatched;
     private TmdbMovieDetail currentDetail;
 
     @Override
@@ -50,6 +49,7 @@ public class MovieDetailActivity extends AppCompatActivity {
         btnLike = findViewById(R.id.btn_like);
         btnDislike = findViewById(R.id.btn_dislike);
         btnTrailer = findViewById(R.id.btn_trailer);
+        btnAlreadyWatched = findViewById(R.id.btn_already_watched);
 
         movieId = getIntent().getIntExtra("movie_id", -1);
         mediaType = getIntent().getStringExtra("media_type");
@@ -63,6 +63,62 @@ public class MovieDetailActivity extends AppCompatActivity {
         btnLike.setOnClickListener(v -> saveFeedback("liked"));
         btnDislike.setOnClickListener(v -> saveFeedback("disliked"));
         btnTrailer.setOnClickListener(v -> openTrailer());
+        btnAlreadyWatched.setOnClickListener(v -> markAsWatched());
+    }
+
+    private void markAsWatched() {
+        if (currentDetail == null) return;
+
+        UserSession session = UserSession.get();
+        if (!session.isLoaded()) {
+            Toast.makeText(this, "Please wait, loading user session...", Toast.LENGTH_SHORT).show();
+            return;
+        }
+
+        btnAlreadyWatched.setEnabled(false);
+
+        // Add to watchlist as Finished
+        SupabaseClient.addToWatchlist(
+                session.getSupabaseUserId(),
+                String.valueOf(currentDetail.getId()),
+                currentDetail.getDisplayTitle(),
+                currentDetail.getPosterUrl(),
+                mediaType,
+                "Finished",
+                new SupabaseClient.Callback() {
+                    @Override public void onSuccess() {}
+                    @Override public void onFailure(String error) {}
+                }
+        );
+
+        // Add to watch history so it shows on Watch Days
+        SupabaseClient.addToWatchHistory(
+                session.getSupabaseUserId(),
+                String.valueOf(currentDetail.getId()),
+                currentDetail.getDisplayTitle(),
+                mediaType,
+                currentDetail.getPosterUrl(),
+                new SupabaseClient.Callback() {
+                    @Override
+                    public void onSuccess() {
+                        runOnUiThread(() -> {
+                            btnAlreadyWatched.setEnabled(true);
+                            Toast.makeText(MovieDetailActivity.this,
+                                    currentDetail.getDisplayTitle() + " marked as watched!",
+                                    Toast.LENGTH_SHORT).show();
+                        });
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        runOnUiThread(() -> {
+                            btnAlreadyWatched.setEnabled(true);
+                            Toast.makeText(MovieDetailActivity.this,
+                                    "Failed: " + error, Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                }
+        );
     }
 
     private void loadDetails() {
@@ -118,12 +174,48 @@ public class MovieDetailActivity extends AppCompatActivity {
     private void addToWatchlist() {
         if (currentDetail == null) return;
 
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        Set<String> watchlist = new HashSet<>(prefs.getStringSet("saved_watchlist", new HashSet<>()));
-        watchlist.add(currentDetail.getDisplayTitle());
-        prefs.edit().putStringSet("saved_watchlist", watchlist).apply();
+        UserSession session = UserSession.get();
+        if (!session.isLoaded()) {
+            Toast.makeText(this, "Please wait, loading user session...", Toast.LENGTH_SHORT).show();
+            return;
+        }
 
-        Toast.makeText(this, "Added to watchlist", Toast.LENGTH_SHORT).show();
+        btnWatchlist.setEnabled(false);
+        SupabaseClient.addToWatchlist(
+                session.getSupabaseUserId(),
+                String.valueOf(currentDetail.getId()),
+                currentDetail.getDisplayTitle(),
+                currentDetail.getPosterUrl(),
+                mediaType,
+                new SupabaseClient.Callback() {
+                    @Override
+                    public void onSuccess() {
+                        // Also log to watch history so it appears on Watch Days page
+                        SupabaseClient.addToWatchHistory(
+                                session.getSupabaseUserId(),
+                                String.valueOf(currentDetail.getId()),
+                                currentDetail.getDisplayTitle(),
+                                mediaType,
+                                currentDetail.getPosterUrl(),
+                                new SupabaseClient.Callback() {
+                                    @Override public void onSuccess() {}
+                                    @Override public void onFailure(String error) {}
+                                }
+                        );
+                        runOnUiThread(() -> {
+                            btnWatchlist.setEnabled(true);
+                            Toast.makeText(MovieDetailActivity.this, "Added to watchlist", Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                    @Override
+                    public void onFailure(String error) {
+                        runOnUiThread(() -> {
+                            btnWatchlist.setEnabled(true);
+                            Toast.makeText(MovieDetailActivity.this, "Failed to add: " + error, Toast.LENGTH_SHORT).show();
+                        });
+                    }
+                }
+        );
     }
 
     private void saveFeedback(String value) {
@@ -132,12 +224,53 @@ public class MovieDetailActivity extends AppCompatActivity {
             return;
         }
 
+        // Save locally for FeedbackFragment display
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-
+        String uid = UserSession.get().getFirebaseUid();
+        boolean hasUid = uid != null && !uid.isEmpty();
+        String feedbackKey = hasUid
+                ? "feedback_" + uid + "_" + currentDetail.getId()
+                : "feedback_" + currentDetail.getId();
+        String titleKey = hasUid
+                ? "feedback_title_" + uid + "_" + currentDetail.getId()
+                : "feedback_title_" + currentDetail.getId();
         prefs.edit()
-                .putString("feedback_" + currentDetail.getId(), value)
-                .putString("feedback_title_" + currentDetail.getId(), currentDetail.getDisplayTitle())
+                .putString(feedbackKey, value)
+                .putString(titleKey, currentDetail.getDisplayTitle())
                 .apply();
+
+        // Save to Supabase ratings table
+        UserSession session = UserSession.get();
+        if (session.isLoaded()) {
+            int rating = "liked".equals(value) ? 5 : 1;
+            SupabaseClient.submitRating(
+                    session.getSupabaseUserId(),
+                    String.valueOf(currentDetail.getId()),
+                    currentDetail.getDisplayTitle(),
+                    rating,
+                    value,
+                    new SupabaseClient.Callback() {
+                        @Override public void onSuccess() {}
+                        @Override public void onFailure(String error) {}
+                    }
+            );
+
+            // If liked, add to watchlist with status "Liked" so it shows in Lists page
+            if ("liked".equals(value)) {
+                SupabaseClient.addToWatchlist(
+                        session.getSupabaseUserId(),
+                        String.valueOf(currentDetail.getId()),
+                        currentDetail.getDisplayTitle(),
+                        currentDetail.getPosterUrl(),
+                        mediaType,
+                        "Liked",
+                        new SupabaseClient.Callback() {
+                            @Override public void onSuccess() {}
+                            @Override public void onFailure(String error) {}
+                        }
+                );
+            }
+        }
 
         Toast.makeText(this, currentDetail.getDisplayTitle() + " marked as " + value, Toast.LENGTH_SHORT).show();
     }
@@ -152,6 +285,22 @@ public class MovieDetailActivity extends AppCompatActivity {
         if (url == null) {
             Toast.makeText(this, "No trailer found", Toast.LENGTH_SHORT).show();
             return;
+        }
+
+        // Record to watch history in Supabase
+        UserSession session = UserSession.get();
+        if (session.isLoaded()) {
+            SupabaseClient.addToWatchHistory(
+                    session.getSupabaseUserId(),
+                    String.valueOf(currentDetail.getId()),
+                    currentDetail.getDisplayTitle(),
+                    mediaType,
+                    currentDetail.getPosterUrl(),
+                    new SupabaseClient.Callback() {
+                        @Override public void onSuccess() {}
+                        @Override public void onFailure(String error) {}
+                    }
+            );
         }
 
         startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(url)));

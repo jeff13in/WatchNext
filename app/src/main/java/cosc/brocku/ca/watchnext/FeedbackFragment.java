@@ -1,6 +1,7 @@
 package cosc.brocku.ca.watchnext;
 
 import android.content.Context;
+import android.content.Intent;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.LayoutInflater;
@@ -28,6 +29,8 @@ public class FeedbackFragment extends Fragment {
     @Override
     public void onResume() {
         super.onResume();
+        if (!isAdded()) return;
+
         View view = getView();
         if (view == null) return;
 
@@ -48,6 +51,12 @@ public class FeedbackFragment extends Fragment {
                               TextView emptyLiked,
                               TextView emptyDisliked) {
 
+        String uid = UserSession.get().getFirebaseUid();
+        boolean hasUid = uid != null && !uid.isEmpty();
+
+        String feedbackPrefix = hasUid ? "feedback_" + uid + "_" : "feedback_";
+        String titlePrefix    = hasUid ? "feedback_title_" + uid + "_" : "feedback_title_";
+
         Map<String, ?> all = prefs.getAll();
 
         likedContainer.removeAllViews();
@@ -59,29 +68,50 @@ public class FeedbackFragment extends Fragment {
         for (Map.Entry<String, ?> entry : all.entrySet()) {
             String key = entry.getKey();
 
-            if (key.startsWith("feedback_") && !key.startsWith("feedback_title_")) {
-                String movieId = key.replace("feedback_", "");
-                String value = String.valueOf(entry.getValue());
-                String title = prefs.getString("feedback_title_" + movieId, null);
-                if (title == null || title.isEmpty()) continue;  // ADD THIS
+            if (!key.startsWith(feedbackPrefix) || key.startsWith(titlePrefix)) continue;
 
-                TextView tv = new TextView(requireContext());
-                tv.setText(title);
-                tv.setTextSize(16f);
-                tv.setPadding(0, 12, 0, 12);
+            String movieId = key.substring(feedbackPrefix.length());
+            if (movieId.startsWith("title_")) continue;
 
-                if ("liked".equals(value)) {
-                    likedContainer.addView(tv);
-                    likedCount++;
-                } else if ("disliked".equals(value)) {
-                    dislikedContainer.addView(tv);
-                    dislikedCount++;
-                }
+            String value = String.valueOf(entry.getValue());
+            String title = prefs.getString(titlePrefix + movieId, null);
+            if (title == null || title.isEmpty()) continue;
+
+            final String finalMovieId = movieId;
+
+            TextView tv = new TextView(requireContext());
+            tv.setText(title);
+            tv.setTextSize(16f);
+            tv.setPadding(0, 12, 0, 12);
+            tv.setClickable(true);
+            tv.setFocusable(true);
+
+            int[] attrs = new int[]{android.R.attr.selectableItemBackground};
+            android.content.res.TypedArray ta = requireContext().obtainStyledAttributes(attrs);
+            tv.setBackground(ta.getDrawable(0));
+            ta.recycle();
+
+            tv.setOnClickListener(v -> {
+                if (!isAdded()) return;
+                try {
+                    int id = Integer.parseInt(finalMovieId);
+                    Intent intent = new Intent(requireContext(), MovieDetailActivity.class);
+                    intent.putExtra("movie_id", id);
+                    intent.putExtra("media_type", "movie");
+                    startActivity(intent);
+                } catch (NumberFormatException ignored) {}
+            });
+
+            if ("liked".equals(value)) {
+                likedContainer.addView(tv);
+                likedCount++;
+            } else if ("disliked".equals(value)) {
+                dislikedContainer.addView(tv);
+                dislikedCount++;
             }
         }
 
         emptyLiked.setVisibility(likedCount == 0 ? View.VISIBLE : View.GONE);
         emptyDisliked.setVisibility(dislikedCount == 0 ? View.VISIBLE : View.GONE);
-
-        }
     }
+}

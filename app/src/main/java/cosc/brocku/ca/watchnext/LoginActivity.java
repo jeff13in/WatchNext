@@ -143,14 +143,51 @@ public class LoginActivity extends AppCompatActivity {
             }
             @Override
             public void onFailure(String error) {
-                // User not in DB yet (e.g. first sign-in after sign-up race), proceed anyway
-                runOnUiThread(() -> {
-                    prefs.edit()
-                            .putBoolean("is_logged_in", true)
-                            .putString("email", firebaseUser.getEmail())
-                            .apply();
-                    startMain();
-                });
+                // User not in Supabase yet — try registering them, then re-fetch
+                String emailStr = firebaseUser.getEmail() != null ? firebaseUser.getEmail() : "";
+                SupabaseClient.registerUser(firebaseUser.getUid(), emailStr,
+                        new SupabaseClient.Callback() {
+                            @Override
+                            public void onSuccess() {
+                                // Registered — now fetch their Supabase record
+                                SupabaseClient.getUser(firebaseUser.getUid(),
+                                        new SupabaseClient.DataCallback() {
+                                            @Override
+                                            public void onSuccess(org.json.JSONObject data) {
+                                                try {
+                                                    int id = data.getInt("id");
+                                                    String em = data.getString("email");
+                                                    UserSession.get().set(id, firebaseUser.getUid(), em);
+                                                } catch (Exception ignored) {}
+                                                runOnUiThread(() -> {
+                                                    prefs.edit()
+                                                            .putBoolean("is_logged_in", true)
+                                                            .putString("email", emailStr).apply();
+                                                    startMain();
+                                                });
+                                            }
+                                            @Override
+                                            public void onFailure(String e2) {
+                                                runOnUiThread(() -> {
+                                                    prefs.edit()
+                                                            .putBoolean("is_logged_in", true)
+                                                            .putString("email", emailStr).apply();
+                                                    startMain();
+                                                });
+                                            }
+                                        });
+                            }
+                            @Override
+                            public void onFailure(String regError) {
+                                // Already registered or unreachable — proceed anyway
+                                runOnUiThread(() -> {
+                                    prefs.edit()
+                                            .putBoolean("is_logged_in", true)
+                                            .putString("email", emailStr).apply();
+                                    startMain();
+                                });
+                            }
+                        });
             }
         });
     }

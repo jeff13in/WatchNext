@@ -28,6 +28,9 @@ public class TmdbMovie {
     @SerializedName("vote_average")
     private double voteAverage;
 
+    @SerializedName("popularity")
+    private double popularity;
+
     @SerializedName("media_type")
     private String mediaType; // "movie", "tv", "person" (multi-search only)
 
@@ -69,7 +72,14 @@ public class TmdbMovie {
         return "https://image.tmdb.org/t/p/w500" + path;
     }
 
+    public static String getGenreName(int id) {
+        return GENRE_MAP.get(id);
+    }
+
+    public List<Integer> getGenreIds() { return genreIds; }
     public double getVoteAverage() { return voteAverage; }
+    public double getPopularity() { return popularity; }
     public String getMediaType() { return mediaType; }
+    public void setMediaType(String mediaType) { this.mediaType = mediaType; }
     public int getId() { return id; }
 }

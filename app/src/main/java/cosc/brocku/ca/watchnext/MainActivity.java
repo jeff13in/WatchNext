@@ -90,9 +90,9 @@ public class MainActivity extends AppCompatActivity {
                 loadFragment(new ListsFragment(), "Lists");
             } else if (id == R.id.nav_search) {
                 loadFragment(new SearchFragment(), "Search");
-            } else if (id == R.id.nav_feedback || id == R.id.nav_feedback) {
-                loadFragment(new FeedbackFragment(), "Feedback");
-                }
+            } else if (id == R.id.nav_recommendations) {
+                loadFragment(new RecommendationsFragment(), "For You");
+            }
             return true;
         });
 

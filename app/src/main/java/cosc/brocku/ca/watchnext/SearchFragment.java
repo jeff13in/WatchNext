@@ -5,6 +5,7 @@ import android.os.Bundle;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
@@ -21,6 +22,7 @@ import retrofit2.Response;
 public class SearchFragment extends Fragment {
 
     private MovieAdapter adapter;
+    private TextView tvSearchLabel;
 
     @Nullable
     @Override
@@ -33,6 +35,8 @@ public class SearchFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
+
+        tvSearchLabel = view.findViewById(R.id.tv_search_label);
 
         RecyclerView rv = view.findViewById(R.id.rv_search_results);
         rv.setLayoutManager(new GridLayoutManager(requireContext(), 2));
@@ -48,10 +52,13 @@ public class SearchFragment extends Fragment {
         });
         rv.setAdapter(adapter);
 
+        loadDefault();
+
         SearchView searchView = view.findViewById(R.id.search_all);
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
+                if (tvSearchLabel != null) tvSearchLabel.setText("Results");
                 search(query);
                 return true;
             }
@@ -59,11 +66,37 @@ public class SearchFragment extends Fragment {
             @Override
             public boolean onQueryTextChange(String newText) {
                 if (newText.isEmpty()) {
-                    adapter.updateMovies(new ArrayList<>());
+                    loadDefault();
                 } else if (newText.length() >= 2) {
+                    if (tvSearchLabel != null) tvSearchLabel.setText("Results");
                     search(newText);
                 }
                 return true;
+            }
+        });
+    }
+
+    private void loadDefault() {
+        if (tvSearchLabel != null) tvSearchLabel.setText("Popular");
+        TmdbClient.getService().getPopularMovies().enqueue(new Callback<TmdbResponse>() {
+            @Override
+            public void onResponse(@NonNull Call<TmdbResponse> call,
+                                   @NonNull Response<TmdbResponse> response) {
+                if (!isAdded()) return;
+                if (response.isSuccessful() && response.body() != null) {
+                    List<TmdbMovie> results = response.body().getResults();
+                    for (TmdbMovie item : results) {
+                        if (item.getMediaType() == null || item.getMediaType().isEmpty()) {
+                            item.setMediaType("movie");
+                        }
+                    }
+                    adapter.updateMovies(results);
+                }
+            }
+
+            @Override
+            public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
+                // silent fail for default content
             }
         });
     }

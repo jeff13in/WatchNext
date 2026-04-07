@@ -17,9 +17,9 @@
         android:title="Lists" />
 
     <item
-        android:id="@+id/nav_feedback"
-        android:icon="@drawable/ic_feedback"
-        android:title="Feedback" />
+        android:id="@+id/nav_recommendations"
+        android:icon="@android:drawable/ic_menu_compass"
+        android:title="For You" />
 
     <item
         android:id="@+id/nav_search"

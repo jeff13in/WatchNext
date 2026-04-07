@@ -1,85 +1,232 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="@color/detail_bg"
+    android:fillViewport="true">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:orientation="vertical"
-        android:padding="16dp">
+        android:clipChildren="false"
+        android:clipToPadding="false">
 
-        <ImageView
-            android:id="@+id/iv_backdrop"
+        <!-- ── Hero backdrop with gradient overlay ── -->
+        <FrameLayout
             android:layout_width="match_parent"
-            android:layout_height="200dp"
-            android:scaleType="centerCrop" />
+            android:layout_height="230dp">
 
-        <ImageView
-            android:id="@+id/iv_poster"
-            android:layout_width="140dp"
-            android:layout_height="200dp"
-            android:layout_marginTop="12dp"
-            android:scaleType="centerCrop" />
+            <ImageView
+                android:id="@+id/iv_backdrop"
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:scaleType="centerCrop" />
 
-        <TextView
-            android:id="@+id/tv_detail_title"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="12dp"
-            android:textSize="24sp"
-            android:textStyle="bold" />
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="match_parent"
+                android:background="@drawable/gradient_backdrop" />
+        </FrameLayout>
 
-        <TextView
-            android:id="@+id/tv_detail_genre"
+        <!-- ── Poster + info row (overlaps backdrop) ── -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="8dp" />
+            android:orientation="horizontal"
+            android:layout_marginTop="-80dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:clipChildren="false">
 
-        <TextView
-            android:id="@+id/tv_detail_date"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
+            <androidx.cardview.widget.CardView
+                android:layout_width="110dp"
+                android:layout_height="165dp"
+                app:cardCornerRadius="10dp"
+                app:cardElevation="12dp">
 
-        <TextView
-            android:id="@+id/tv_detail_rating"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="4dp" />
+                <ImageView
+                    android:id="@+id/iv_poster"
+                    android:layout_width="match_parent"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop" />
+            </androidx.cardview.widget.CardView>
 
+            <LinearLayout
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:orientation="vertical"
+                android:layout_marginLeft="14dp"
+                android:layout_gravity="bottom"
+                android:paddingBottom="4dp">
+
+                <TextView
+                    android:id="@+id/tv_detail_title"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="19sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/white"
+                    android:maxLines="3"
+                    android:ellipsize="end" />
+
+                <TextView
+                    android:id="@+id/tv_detail_genre"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="11sp"
+                    android:textColor="@color/white"
+                    android:background="@color/genre_default"
+                    android:paddingLeft="8dp"
+                    android:paddingRight="8dp"
+                    android:paddingTop="3dp"
+                    android:paddingBottom="3dp" />
+
+                <TextView
+                    android:id="@+id/tv_detail_date"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="6dp"
+                    android:textSize="12sp"
+                    android:textColor="@color/detail_text_secondary" />
+
+                <TextView
+                    android:id="@+id/tv_detail_rating"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/detail_rating_gold" />
+            </LinearLayout>
+        </LinearLayout>
+
+        <!-- ── Overview ── -->
         <TextView
             android:id="@+id/tv_detail_overview"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="12dp" />
+            android:layout_marginTop="20dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:textSize="14sp"
+            android:textColor="@color/detail_text_secondary"
+            android:lineSpacingExtra="3dp" />
 
-        <Button
-            android:id="@+id/btn_add_watchlist"
+        <!-- ── Divider ── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginTop="20dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:background="@color/detail_divider" />
+
+        <!-- ── Action buttons ── -->
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:text="Add to Watchlist" />
+            android:orientation="vertical"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:paddingTop="16dp"
+            android:paddingBottom="28dp">
 
-        <Button
-            android:id="@+id/btn_like"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Like" />
+            <!-- PRIMARY: Watch Trailer -->
+            <com.google.android.material.button.MaterialButton
+                android:id="@+id/btn_trailer"
+                android:layout_width="match_parent"
+                android:layout_height="52dp"
+                android:text="  Watch Trailer"
+                android:textSize="15sp"
+                android:textStyle="bold"
+                android:textColor="@color/white"
+                android:letterSpacing="0.04"
+                app:backgroundTint="@color/btn_trailer"
+                app:cornerRadius="10dp"
+                app:icon="@android:drawable/ic_media_play"
+                app:iconTint="@color/white"
+                app:iconSize="18dp" />
 
-        <Button
-            android:id="@+id/btn_dislike"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Dislike" />
+            <!-- SECONDARY row: Watchlist + Already Watched -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
 
-        <Button
-            android:id="@+id/btn_trailer"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:layout_marginTop="8dp"
-            android:text="Watch Trailer" />
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_add_watchlist"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginRight="5dp"
+                    android:text="+ Watchlist"
+                    android:textSize="13sp"
+                    android:textColor="@color/white"
+                    app:backgroundTint="@color/btn_watchlist"
+                    app:cornerRadius="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_already_watched"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="5dp"
+                    android:text="Already Watched"
+                    android:textSize="12sp"
+                    android:textColor="@color/white"
+                    app:backgroundTint="@color/btn_watched"
+                    app:cornerRadius="10dp" />
+            </LinearLayout>
+
+            <!-- TERTIARY row: Like + Dislike (outlined) -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:layout_marginTop="10dp">
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_like"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginRight="5dp"
+                    android:text="Like"
+                    android:textSize="14sp"
+                    android:textColor="@color/btn_like"
+                    app:backgroundTint="@android:color/transparent"
+                    app:strokeColor="@color/btn_like"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="10dp"
+                    app:icon="@android:drawable/btn_star_big_on"
+                    app:iconTint="@color/btn_like"
+                    app:iconSize="16dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btn_dislike"
+                    style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                    android:layout_width="0dp"
+                    android:layout_height="48dp"
+                    android:layout_weight="1"
+                    android:layout_marginLeft="5dp"
+                    android:text="Dislike"
+                    android:textSize="14sp"
+                    android:textColor="@color/btn_dislike"
+                    app:backgroundTint="@android:color/transparent"
+                    app:strokeColor="@color/btn_dislike"
+                    app:strokeWidth="2dp"
+                    app:cornerRadius="10dp"
+                    app:icon="@android:drawable/btn_star_big_off"
+                    app:iconTint="@color/btn_dislike"
+                    app:iconSize="16dp" />
+            </LinearLayout>
+
+        </LinearLayout>
     </LinearLayout>
 </ScrollView>

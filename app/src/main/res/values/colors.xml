@@ -11,4 +11,20 @@
     <color name="genre_horror">#212121</color>
     <color name="genre_romance">#E91E63</color>
     <color name="genre_default">#455A64</color>
+
+    <!-- Movie Detail screen — LIGHT mode values (overridden in values-night) -->
+    <color name="detail_bg">#FFFFFF</color>
+    <color name="detail_surface">#F3F3F8</color>
+    <color name="detail_text_secondary">#555566</color>
+    <color name="detail_divider">#DDDDE8</color>
+    <color name="detail_rating_gold">#B8860B</color>
+    <!-- Gradient helpers: transparent → opaque detail_bg -->
+    <color name="detail_bg_transparent">#00FFFFFF</color>
+
+    <!-- Detail action buttons — same in both modes -->
+    <color name="btn_trailer">#E50914</color>
+    <color name="btn_watchlist">#1565C0</color>
+    <color name="btn_watched">#2E7D32</color>
+    <color name="btn_like">#388E3C</color>
+    <color name="btn_dislike">#C62828</color>
 </resources>
