@@ -9,11 +9,9 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.ArrayAdapter;
-import android.widget.ImageButton;
 import android.widget.ProgressBar;
 import android.widget.Spinner;
 import android.widget.Toast;
-import androidx.appcompat.app.AppCompatDelegate;
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
@@ -78,20 +76,6 @@ public class HomeFragment extends Fragment {
         rv.setAdapter(adapter);
 
         loadPopularMovies();
-
-        // Dark mode toggle button
-        ImageButton btnToggleTheme = view.findViewById(R.id.btn_toggle_theme);
-        SharedPreferences prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
-        boolean isDark = prefs.getBoolean("dark_mode", true);
-        btnToggleTheme.setImageResource(isDark ? R.drawable.ic_mode_light : R.drawable.ic_mode_night);
-        btnToggleTheme.setOnClickListener(v -> {
-            boolean currentlyDark = prefs.getBoolean("dark_mode", true);
-            boolean newDark = !currentlyDark;
-            prefs.edit().putBoolean("dark_mode", newDark).apply();
-            AppCompatDelegate.setDefaultNightMode(
-                    newDark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
-            requireActivity().recreate();
-        });
 
         TabLayout tabs = view.findViewById(R.id.tab_home);
         tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {

@@ -4,10 +4,12 @@ import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
 import android.view.MenuItem;
+import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
 import androidx.appcompat.app.ActionBarDrawerToggle;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.app.AppCompatDelegate;
 import androidx.drawerlayout.widget.DrawerLayout;
 import androidx.fragment.app.Fragment;
 import com.google.android.material.appbar.MaterialToolbar;
@@ -37,11 +39,24 @@ public class MainActivity extends AppCompatActivity {
         drawerLayout.addDrawerListener(toggle);
         toggle.syncState();
 
-        // Update drawer header with user email
+        // Update drawer header with user email + wire theme toggle
         NavigationView navView = findViewById(R.id.nav_view);
-        TextView headerEmail = navView.getHeaderView(0).findViewById(R.id.header_email);
+        android.view.View headerView = navView.getHeaderView(0);
+        TextView headerEmail = headerView.findViewById(R.id.header_email);
         SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
         headerEmail.setText(prefs.getString("email", "user@example.com"));
+
+        ImageButton btnToggleTheme = headerView.findViewById(R.id.btn_toggle_theme);
+        boolean isDark = prefs.getBoolean("dark_mode", true);
+        btnToggleTheme.setImageResource(isDark ? R.drawable.ic_mode_light : R.drawable.ic_mode_night);
+        btnToggleTheme.setOnClickListener(v -> {
+            boolean currentlyDark = prefs.getBoolean("dark_mode", true);
+            boolean newDark = !currentlyDark;
+            prefs.edit().putBoolean("dark_mode", newDark).apply();
+            AppCompatDelegate.setDefaultNightMode(
+                    newDark ? AppCompatDelegate.MODE_NIGHT_YES : AppCompatDelegate.MODE_NIGHT_NO);
+            recreate();
+        });
 
         // Load UserSession from Supabase if not already loaded
         if (!UserSession.get().isLoaded()) {
