@@ -16,8 +16,6 @@ import com.google.firebase.auth.FirebaseAuth;
 
 public class ProfileFragment extends Fragment {
 
-    private static final String PREFS_NAME = "watchnext_prefs";
-
     @Nullable
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater,
@@ -37,12 +35,17 @@ public class ProfileFragment extends Fragment {
             tvEmail.setText(session.getEmail());
         } else {
             SharedPreferences prefs = requireContext()
-                    .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                    .getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
             tvEmail.setText(prefs.getString("email", "user@example.com"));
         }
 
-        Button btnSignInAnother = view.findViewById(R.id.btn_sign_in_another);
-        btnSignInAnother.setOnClickListener(v -> signOut());
+        Button btnPreferences = view.findViewById(R.id.btn_preferences);
+        btnPreferences.setOnClickListener(v ->
+                requireActivity().getSupportFragmentManager()
+                        .beginTransaction()
+                        .replace(R.id.fragment_container, new PreferencesFragment())
+                        .addToBackStack(null)
+                        .commit());
 
         Button btnSignOut = view.findViewById(R.id.btn_sign_out);
         btnSignOut.setOnClickListener(v -> signOut());
@@ -53,7 +56,7 @@ public class ProfileFragment extends Fragment {
         UserSession.get().clear();
 
         SharedPreferences prefs = requireContext()
-                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                .getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
         prefs.edit().putBoolean("is_logged_in", false).apply();
 
         Intent intent = new Intent(requireContext(), LoginActivity.class);

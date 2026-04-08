@@ -17,6 +17,7 @@ import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
 import java.util.List;
@@ -29,8 +30,6 @@ public class HomeFragment extends Fragment {
     private MovieAdapter adapter;
     private ProgressBar progressBar;
 
-    private static final String PREFS_NAME = "watchnext_prefs";
-
     private static final String[] GENRE_NAMES = {
             "Action", "Drama", "Sci-Fi", "Fantasy", "Crime", "Comedy", "Horror", "Romance"
     };
@@ -41,9 +40,22 @@ public class HomeFragment extends Fragment {
     };
 
     private boolean moviesTabSelected = true;
-    private boolean categorySelected = false;
-    private boolean popularSelected = true;
+    private boolean categorySelected  = false;
+    private boolean popularSelected   = true;
     private List<TmdbMovie> allRecommendations = null;
+
+    // Active genre (-1 = none)
+    private int activeGenreId = -1;
+
+    // Year dropdown options: label → {dateGte, dateLte} or exact year
+    // Index 0 = All, 1-6 = exact years 2025..2020, 7-10 = decade ranges
+    private static final String[] YEAR_OPTIONS = {
+            "All Years", "2025", "2024", "2023", "2022", "2021", "2020",
+            "2015 – 2019", "2010 – 2014", "2000 – 2009", "1990 – 1999"
+    };
+    private int   selectedYearIndex = 0;   // 0 = All
+    private float selectedRating    = -1f; // -1 = All, else minimum rating
+
     private Spinner spin;
     private Spinner categorySpinner;
 
@@ -67,46 +79,35 @@ public class HomeFragment extends Fragment {
             Intent intent = new Intent(requireContext(), MovieDetailActivity.class);
             intent.putExtra("movie_id", movie.getId());
             String mediaType = movie.getMediaType();
-            if (mediaType == null || mediaType.isEmpty()) {
-                mediaType = "movie";
-            }
-            intent.putExtra("media_type", mediaType);
+            intent.putExtra("media_type", (mediaType == null || mediaType.isEmpty()) ? "movie" : mediaType);
             startActivity(intent);
         });
         rv.setAdapter(adapter);
 
-        loadPopularMovies();
-
+        // ── Tabs ──────────────────────────────────────────────────────────────
         TabLayout tabs = view.findViewById(R.id.tab_home);
         tabs.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                // Reset spinners to default when switching tabs
                 spin.setSelection(0);
                 categorySpinner.setSelection(0);
-
-                if (tab.getPosition() == 0) {
-                    allRecommendations = null;
-                    moviesTabSelected = true;
-                    loadPopularMovies();
-                } else {
-                    allRecommendations = null;
-                    moviesTabSelected = false;
-                    loadPopularTvShows();
-                }
+                allRecommendations = null;
+                activeGenreId = -1;
+                moviesTabSelected = tab.getPosition() == 0;
+                refresh();
             }
-
             @Override public void onTabUnselected(TabLayout.Tab tab) {}
             @Override public void onTabReselected(TabLayout.Tab tab) {}
         });
 
-        // Category spinner
-        String[] categoryOptions = {"Categories", "Action", "Drama", "Sci-Fi", "Fantasy", "Crime", "Comedy", "Horror", "Romance"};
+        // ── Category spinner ──────────────────────────────────────────────────
+        String[] categoryOptions = {"Categories", "Action", "Drama", "Sci-Fi",
+                "Fantasy", "Crime", "Comedy", "Horror", "Romance"};
         categorySpinner = view.findViewById(R.id.categorySpinner);
-        ArrayAdapter<String> adapterCategory = new ArrayAdapter<>(requireContext(),
+        ArrayAdapter<String> catAdapter = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_spinner_item, categoryOptions);
-        adapterCategory.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        categorySpinner.setAdapter(adapterCategory);
+        catAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        categorySpinner.setAdapter(catAdapter);
         categorySpinner.setOnTouchListener((v, event) -> {
             categorySelected = true;
             return false;
@@ -116,62 +117,124 @@ public class HomeFragment extends Fragment {
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 if (!categorySelected) return;
                 if (position == 0) {
-                    if (popularSelected) {
-                        if (moviesTabSelected) loadPopularMovies();
-                        else loadPopularTvShows();
-                    } else {
-                        loadRecommendations();
-                    }
-                    return;
+                    activeGenreId = -1;
+                    refresh();
+                } else {
+                    activeGenreId = moviesTabSelected
+                            ? MOVIE_GENRE_IDS[position - 1]
+                            : TV_GENRE_IDS[position - 1];
+                    refresh();
                 }
-                loadGenre(moviesTabSelected
-                        ? MOVIE_GENRE_IDS[position - 1]
-                        : TV_GENRE_IDS[position - 1]);
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
 
-        // Popular / Recommended spinner
+        // ── Popular / Recommended spinner ─────────────────────────────────────
         spin = view.findViewById(R.id.spinner);
         String[] options = {"Popular", "Recommended"};
-        ArrayAdapter<String> adapterS = new ArrayAdapter<>(requireContext(),
+        ArrayAdapter<String> spinAdapter = new ArrayAdapter<>(requireContext(),
                 android.R.layout.simple_spinner_item, options);
-        adapterS.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
-        spin.setAdapter(adapterS);
+        spinAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        spin.setAdapter(spinAdapter);
         spin.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 popularSelected = (position == 0);
                 categorySelected = false;
                 categorySpinner.setSelection(0);
-
-                if (popularSelected) {
-                    if (moviesTabSelected) loadPopularMovies();
-                    else loadPopularTvShows();
-                } else {
-                    loadRecommendations();
-                }
+                activeGenreId = -1;
+                allRecommendations = null;
+                refresh();
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {}
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
         });
+
+        // ── Year spinner ──────────────────────────────────────────────────────
+        Spinner yearSpinner = view.findViewById(R.id.yearSpinner);
+        ArrayAdapter<String> yearAdapter = new ArrayAdapter<>(requireContext(),
+                android.R.layout.simple_spinner_item, YEAR_OPTIONS);
+        yearAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
+        yearSpinner.setAdapter(yearAdapter);
+        yearSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
+            @Override
+            public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
+                if (position == selectedYearIndex) return;
+                selectedYearIndex = position;
+                allRecommendations = null;
+                refresh();
+            }
+            @Override public void onNothingSelected(AdapterView<?> parent) {}
+        });
+
+        // ── Rating filter chips ───────────────────────────────────────────────
+        ChipGroup ratingGroup = view.findViewById(R.id.chipgroup_rating);
+        ratingGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) return;
+            int id = checkedIds.get(0);
+            if      (id == R.id.chip_rating_all) selectedRating = -1f;
+            else if (id == R.id.chip_rating_6)   selectedRating = 6f;
+            else if (id == R.id.chip_rating_7)   selectedRating = 7f;
+            else if (id == R.id.chip_rating_8)   selectedRating = 8f;
+            else if (id == R.id.chip_rating_9)   selectedRating = 9f;
+            allRecommendations = null;
+            refresh();
+        });
+
+        refresh();
     }
 
-    private void showLoading(boolean show) {
-        if (progressBar != null) {
-            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
+    // ── Central refresh dispatcher ─────────────────────────────────────────────
+
+    private void refresh() {
+        if (activeGenreId != -1) {
+            loadDiscover(activeGenreId);
+        } else if (!popularSelected) {
+            loadRecommendations();
+        } else {
+            loadDiscover(null);
         }
     }
 
-    private void loadGenre(int genreId) {
+    private boolean hasFilters() {
+        return selectedYearIndex != 0 || selectedRating > 0;
+    }
+
+    // ── Core load methods ──────────────────────────────────────────────────────
+
+    /**
+     * Single discover call that respects active genre, year, and rating filters.
+     * When genreId is null and no filters are active, falls back to popularity.desc
+     * so the results match "popular" behaviour via the discover endpoint.
+     */
+    private void loadDiscover(@Nullable Integer genreId) {
         showLoading(true);
         String type = moviesTabSelected ? "movie" : "tv";
+
+        // Parse year dropdown selection into API params
+        Integer yearParam = null;
+        String  dateGte   = null;
+        String  dateLte   = null;
+        switch (selectedYearIndex) {
+            case 0:  break; // All Years — no filter
+            case 1:  yearParam = 2025; break;
+            case 2:  yearParam = 2024; break;
+            case 3:  yearParam = 2023; break;
+            case 4:  yearParam = 2022; break;
+            case 5:  yearParam = 2021; break;
+            case 6:  yearParam = 2020; break;
+            case 7:  dateGte = "2015-01-01"; dateLte = "2019-12-31"; break;
+            case 8:  dateGte = "2010-01-01"; dateLte = "2014-12-31"; break;
+            case 9:  dateGte = "2000-01-01"; dateLte = "2009-12-31"; break;
+            case 10: dateGte = "1990-01-01"; dateLte = "1999-12-31"; break;
+        }
+
+        Float minRating = selectedRating > 0 ? selectedRating : null;
+
         Call<TmdbResponse> call = moviesTabSelected
-                ? TmdbClient.getService().discoverMovies(genreId)
-                : TmdbClient.getService().discoverTv(genreId);
+                ? TmdbClient.getService().discoverMoviesFull(
+                        genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc")
+                : TmdbClient.getService().discoverTvFull(
+                        genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc");
 
         call.enqueue(new Callback<TmdbResponse>() {
             @Override
@@ -182,75 +245,22 @@ public class HomeFragment extends Fragment {
                 if (response.isSuccessful() && response.body() != null) {
                     List<TmdbMovie> results = response.body().getResults();
                     stampMediaType(results, type);
-                    adapter.updateMovies(results);
+                    adapter.updateMovies(results != null ? results : new ArrayList<>());
                 } else {
-                    Toast.makeText(requireContext(), "Failed to load genre", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(requireContext(), "Failed to load content", Toast.LENGTH_SHORT).show();
                 }
             }
-
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (!isAdded()) return;
                 showLoading(false);
-                Toast.makeText(requireContext(), "Failed to load genre", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void loadPopularMovies() {
-        showLoading(true);
-        TmdbClient.getService().getPopularMovies().enqueue(new Callback<TmdbResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call,
-                                   @NonNull Response<TmdbResponse> response) {
-                if (!isAdded()) return;
-                showLoading(false);
-                if (response.isSuccessful() && response.body() != null) {
-                    List<TmdbMovie> results = response.body().getResults();
-                    stampMediaType(results, "movie");
-                    adapter.updateMovies(results);
-                } else {
-                    Toast.makeText(requireContext(), "Failed to load movies", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                if (!isAdded()) return;
-                showLoading(false);
-                Toast.makeText(requireContext(), "Failed to load movies", Toast.LENGTH_SHORT).show();
-            }
-        });
-    }
-
-    private void loadPopularTvShows() {
-        showLoading(true);
-        TmdbClient.getService().getPopularTvShows().enqueue(new Callback<TmdbResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call,
-                                   @NonNull Response<TmdbResponse> response) {
-                if (!isAdded()) return;
-                showLoading(false);
-                if (response.isSuccessful() && response.body() != null) {
-                    List<TmdbMovie> results = response.body().getResults();
-                    stampMediaType(results, "tv");
-                    adapter.updateMovies(results);
-                } else {
-                    Toast.makeText(requireContext(), "Failed to load TV shows", Toast.LENGTH_SHORT).show();
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                if (!isAdded()) return;
-                showLoading(false);
-                Toast.makeText(requireContext(), "Failed to load TV shows", Toast.LENGTH_SHORT).show();
+                Toast.makeText(requireContext(), "Failed to load content", Toast.LENGTH_SHORT).show();
             }
         });
     }
 
     private void loadRecommendations() {
-        if (allRecommendations != null) {
+        if (allRecommendations != null && !hasFilters()) {
             adapter.updateMovies(allRecommendations);
             return;
         }
@@ -258,40 +268,70 @@ public class HomeFragment extends Fragment {
         showLoading(true);
         String type = moviesTabSelected ? "movie" : "tv";
         SharedPreferences prefs = requireContext()
-                .getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+                .getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
         List<TmdbMovie> recs = new ArrayList<>();
 
         for (int i = 0; i < PREF_KEYS.length; i++) {
             int score = prefs.getInt("genre_" + PREF_KEYS[i], 50);
-            if (score >= 60) {
-                int genreId = moviesTabSelected ? MOVIE_GENRE_IDS[i] : TV_GENRE_IDS[i];
-                Call<TmdbResponse> call = moviesTabSelected
-                        ? TmdbClient.getService().discoverMovies(genreId)
-                        : TmdbClient.getService().discoverTv(genreId);
+            if (score < 60) continue;
 
-                call.enqueue(new Callback<TmdbResponse>() {
-                    @Override
-                    public void onResponse(@NonNull Call<TmdbResponse> call,
-                                           @NonNull Response<TmdbResponse> response) {
-                        if (!isAdded()) return;
-                        if (response.isSuccessful() && response.body() != null) {
-                            List<TmdbMovie> batch = response.body().getResults();
-                            stampMediaType(batch, type);
-                            recs.addAll(batch);
-                            allRecommendations = recs;
-                            showLoading(false);
-                            adapter.updateMovies(allRecommendations);
-                        }
-                    }
+            int genreId = moviesTabSelected ? MOVIE_GENRE_IDS[i] : TV_GENRE_IDS[i];
 
-                    @Override
-                    public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                        if (!isAdded()) return;
-                        showLoading(false);
-                        Toast.makeText(requireContext(), "Failed to load recommendations", Toast.LENGTH_SHORT).show();
-                    }
-                });
+            // Parse year dropdown selection into API params
+            Integer yearParam = null;
+            String  dateGte   = null;
+            String  dateLte   = null;
+            switch (selectedYearIndex) {
+                case 0:  break;
+                case 1:  yearParam = 2025; break;
+                case 2:  yearParam = 2024; break;
+                case 3:  yearParam = 2023; break;
+                case 4:  yearParam = 2022; break;
+                case 5:  yearParam = 2021; break;
+                case 6:  yearParam = 2020; break;
+                case 7:  dateGte = "2015-01-01"; dateLte = "2019-12-31"; break;
+                case 8:  dateGte = "2010-01-01"; dateLte = "2014-12-31"; break;
+                case 9:  dateGte = "2000-01-01"; dateLte = "2009-12-31"; break;
+                case 10: dateGte = "1990-01-01"; dateLte = "1999-12-31"; break;
             }
+            Float minRating = selectedRating > 0 ? selectedRating : null;
+
+            Call<TmdbResponse> call = moviesTabSelected
+                    ? TmdbClient.getService().discoverMoviesFull(
+                            genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc")
+                    : TmdbClient.getService().discoverTvFull(
+                            genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc");
+
+            call.enqueue(new Callback<TmdbResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<TmdbResponse> call,
+                                       @NonNull Response<TmdbResponse> response) {
+                    if (!isAdded()) return;
+                    if (response.isSuccessful() && response.body() != null) {
+                        List<TmdbMovie> batch = response.body().getResults();
+                        stampMediaType(batch, type);
+                        recs.addAll(batch);
+                        allRecommendations = recs;
+                        showLoading(false);
+                        adapter.updateMovies(allRecommendations);
+                    }
+                }
+                @Override
+                public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
+                    if (!isAdded()) return;
+                    showLoading(false);
+                    Toast.makeText(requireContext(),
+                            "Failed to load recommendations", Toast.LENGTH_SHORT).show();
+                }
+            });
+        }
+    }
+
+    // ── Helpers ────────────────────────────────────────────────────────────────
+
+    private void showLoading(boolean show) {
+        if (progressBar != null) {
+            progressBar.setVisibility(show ? View.VISIBLE : View.GONE);
         }
     }
 

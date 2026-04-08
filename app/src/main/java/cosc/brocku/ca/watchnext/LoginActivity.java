@@ -16,7 +16,6 @@ import com.google.firebase.auth.FirebaseUser;
 
 public class LoginActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "watchnext_prefs";
     private TextInputEditText etEmail, etPassword, etConfirmPassword;
     private TextInputLayout tilConfirmPassword;
     private MaterialButton btnAction;
@@ -30,7 +29,7 @@ public class LoginActivity extends AppCompatActivity {
         auth = FirebaseAuth.getInstance();
 
         // Skip login if already logged in
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
         if (prefs.getBoolean("is_logged_in", false) && auth.getCurrentUser() != null) {
             loadUserAndStart(auth.getCurrentUser(), prefs);
             return;

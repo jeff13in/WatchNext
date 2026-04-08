@@ -24,12 +24,15 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
+import retrofit2.Call;
+import retrofit2.Callback;
+import retrofit2.Response;
 
 public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryChangedListener {
 
     private List<ListEntry> allEntries;
     private ListEntryAdapter adapter;
-    private String currentTab = "Watching";
+    private String currentTab = "Watchlist";
     private String searchQuery = "";
     private final List<String> customPlaylists = new ArrayList<>();
     private TabLayout tabLayout;
@@ -49,9 +52,10 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
         allEntries = new ArrayList<>();
 
         tabLayout = view.findViewById(R.id.tab_lists);
-        tabLayout.addTab(tabLayout.newTab().setText("Watching"));
+        tabLayout.addTab(tabLayout.newTab().setText("Watchlist"));
         tabLayout.addTab(tabLayout.newTab().setText("Finished"));
         tabLayout.addTab(tabLayout.newTab().setText("Liked"));
+        tabLayout.addTab(tabLayout.newTab().setText("Disliked"));
 
         RecyclerView rv = view.findViewById(R.id.rv_lists);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -62,13 +66,13 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
                 intent.putExtra("media_type", entry.getType().equals("TV Show") ? "tv" : "movie");
                 startActivity(intent);
             }
-        });
+        }, getChildFragmentManager());
         rv.setAdapter(adapter);
 
         tabLayout.addOnTabSelectedListener(new TabLayout.OnTabSelectedListener() {
             @Override
             public void onTabSelected(TabLayout.Tab tab) {
-                currentTab = tab.getText() != null ? tab.getText().toString() : "Watching";
+                currentTab = tab.getText() != null ? tab.getText().toString() : "Watchlist";
                 refreshList();
             }
             @Override public void onTabUnselected(TabLayout.Tab tab) {}
@@ -125,16 +129,25 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
                 for (int i = 0; i < data.length(); i++) {
                     try {
                         JSONObject item = data.getJSONObject(i);
-                        String title     = item.optString("title", "Unknown");
-                        String mediaType = item.optString("media_type", "movie");
-                        String status    = item.optString("status", "Watching");
-                        String movieId   = item.optString("movie_id", "");
-                        int supabaseId   = item.optInt("id", -1);
+                        String title      = item.optString("title", "Unknown");
+                        String mediaType  = item.optString("media_type", "movie");
+                        String status     = item.optString("status", "Watching");
+                        String movieId    = item.optString("movie_id", "");
+                        int supabaseId    = item.optInt("id", -1);
+                        String addedAt    = item.optString("added_at", "");
+                        String watchedAt  = item.optString("watched_at", "");
+
+                        // Show watched_at for Finished, added_at for Watching
+                        String rawDate = (status.equals("Finished") && !watchedAt.isEmpty())
+                                ? watchedAt : addedAt;
+                        String label   = status.equals("Finished") ? "Finished" : "Added";
+                        String displayDate = rawDate.isEmpty() ? "" : label + " " + DateUtils.formatDate(rawDate);
 
                         String typeLabel = mediaType.equalsIgnoreCase("tv") ? "TV Show" : "Movie";
                         ListEntry entry = new ListEntry(title, typeLabel, status, -1, status);
                         entry.setMovieId(movieId);
                         entry.setSupabaseId(supabaseId);
+                        entry.setDisplayDate(displayDate);
                         loaded.add(entry);
                     } catch (Exception ignored) {}
                 }
@@ -148,6 +161,7 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
                         if (emptyView != null) {
                             emptyView.setVisibility(allEntries.isEmpty() ? View.VISIBLE : View.GONE);
                         }
+                        fetchEpisodeCounts(loaded);
                     });
                 }
             }
@@ -164,6 +178,38 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
                 }
             }
         });
+    }
+
+    /** Fetches total episode count from TMDB for each TV show entry. */
+    private void fetchEpisodeCounts(List<ListEntry> entries) {
+        for (ListEntry entry : entries) {
+            if (!entry.getType().equals("TV Show")) continue;
+            if (entry.getMovieId() == null || entry.getMovieId().isEmpty()) continue;
+            int tvId;
+            try { tvId = Integer.parseInt(entry.getMovieId()); } catch (NumberFormatException e) { continue; }
+
+            TmdbClient.getService().getTvDetails(tvId, "").enqueue(new Callback<TmdbMovieDetail>() {
+                @Override
+                public void onResponse(@androidx.annotation.NonNull Call<TmdbMovieDetail> call,
+                                       @androidx.annotation.NonNull Response<TmdbMovieDetail> response) {
+                    if (!isAdded()) return;
+                    if (response.isSuccessful() && response.body() != null) {
+                        int total = response.body().getNumberOfEpisodes();
+                        if (total > 0) {
+                            entry.setTotalEpisodes(total);
+                            getActivity().runOnUiThread(this::refresh);
+                        }
+                    }
+                }
+                @Override
+                public void onFailure(@androidx.annotation.NonNull Call<TmdbMovieDetail> call,
+                                      @androidx.annotation.NonNull Throwable t) {}
+
+                private void refresh() {
+                    if (isAdded()) refreshList();
+                }
+            });
+        }
     }
 
     private void showAddPlaylistDialog() {
@@ -184,9 +230,16 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
     }
 
     private List<ListEntry> getFiltered() {
+        String statusFilter;
+        switch (currentTab) {
+            case "Watchlist": statusFilter = "Watching"; break;
+            case "Liked":     statusFilter = "Liked";    break;
+            case "Disliked":  statusFilter = "Disliked"; break;
+            default:          statusFilter = currentTab; break; // "Finished"
+        }
         List<ListEntry> result = new ArrayList<>();
         for (ListEntry e : allEntries) {
-            boolean matchesTab = e.getPlaylist().equals(currentTab) || e.getStatus().equals(currentTab);
+            boolean matchesTab = e.getStatus().equals(statusFilter);
             boolean matchesSearch = searchQuery.isEmpty() ||
                     e.getTitle().toLowerCase().contains(searchQuery.toLowerCase());
             if (matchesTab && matchesSearch) result.add(e);
@@ -197,6 +250,7 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
     private void refreshList() {
         adapter.updateEntries(getFiltered());
     }
+
 
     @Override
     public void onEntryChanged() {

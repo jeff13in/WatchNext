@@ -1,51 +1,56 @@
 package cosc.brocku.ca.watchnext;
 
 import android.os.Bundle;
-import android.text.TextUtils;
+import android.os.Handler;
+import android.os.Looper;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.ArrayAdapter;
+import android.widget.Spinner;
 import android.widget.TextView;
 import android.widget.Toast;
-
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.LinearLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
-import android.widget.AdapterView;
-import android.widget.ArrayAdapter;
-import android.widget.Spinner;
+import org.json.JSONArray;
+import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
-
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 
-// Class that displays personalized recommendations in a RecyclerView
-// It uses the user's saved list entries, resolves them to TMDb items,
-// fetches real candidate movies/shows from TMDb, then scores them.
+/**
+ * "For You" page — personalised recommendations driven by the user's Supabase watchlist.
+ *
+ * Flow:
+ *  1. Load user's watchlist from Supabase (Liked → liked, Disliked → disliked,
+ *     Watching/Finished → watched).
+ *  2. Resolve each saved title to a TmdbMovie via searchMulti.
+ *  3. Fetch popular movies + TV as the candidate pool.
+ *  4. Run Recommender with the user's profile + selected mood.
+ *  5. Mood spinner re-runs step 4 instantly (candidates already in memory).
+ */
 public class RecommendationsFragment extends Fragment {
+
     private RecyclerView recyclerView;
     private RecommendationAdapter adapter;
-
-    //Spinner showing currently selected mood
     private Spinner moodSpinner;
     private TextView emptyText;
 
-    // Lists used by the recommender
-    private final List<TmdbMovie> likedMovies = new ArrayList<>();
-    private final List<TmdbMovie> watchedMovies = new ArrayList<>();
+    private final List<TmdbMovie> likedMovies    = new ArrayList<>();
+    private final List<TmdbMovie> watchedMovies  = new ArrayList<>();
     private final List<TmdbMovie> dislikedMovies = new ArrayList<>();
     private final List<TmdbMovie> candidateMovies = new ArrayList<>();
 
-    //Optional mood selected by the user
     private String selectedMood = "";
+    private int sessionRetries  = 0;
 
-    public RecommendationsFragment() {
-        //Required empty public constructor
-    }
+    public RecommendationsFragment() {}
 
     @Nullable
     @Override
@@ -59,66 +64,43 @@ public class RecommendationsFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        // Find views from the layout
         recyclerView = view.findViewById(R.id.recycler_recommendations);
-        moodSpinner = view.findViewById(R.id.spinner_mood);
-        emptyText = view.findViewById(R.id.tv_empty_recommendations);
+        moodSpinner  = view.findViewById(R.id.spinner_mood);
+        emptyText    = view.findViewById(R.id.tv_empty_recommendations);
 
-        // Set RecyclerView layout manager
         recyclerView.setLayoutManager(new LinearLayoutManager(requireContext()));
 
-        // Create adapter and define watchlist button behavior
         adapter = new RecommendationAdapter(requireContext(), item -> {
             UserSession session = UserSession.get();
             if (!session.isLoaded()) {
                 Toast.makeText(requireContext(), "Please log in first", Toast.LENGTH_SHORT).show();
                 return;
             }
-
-            TmdbMovie source = item.getSourceMovie();
-            String movieId   = String.valueOf(source != null ? source.getId() : 0);
-            String mediaType = source != null ? source.getMediaType() : "movie";
+            TmdbMovie source  = item.getSourceMovie();
+            String movieId    = String.valueOf(source != null ? source.getId() : 0);
+            String mediaType  = source != null ? source.getMediaType() : "movie";
             if (mediaType == null || mediaType.isEmpty()) mediaType = "movie";
-            String posterUrl = source != null ? source.getPosterUrl() : null;
-            String finalMediaType = mediaType;
+            String posterUrl  = source != null ? source.getPosterUrl() : null;
+            String finalType  = mediaType;
 
             SupabaseClient.addToWatchlist(
-                    session.getSupabaseUserId(),
-                    movieId,
-                    item.getTitle(),
-                    posterUrl,
-                    finalMediaType,
+                    session.getSupabaseUserId(), movieId, item.getTitle(),
+                    posterUrl, finalType,
                     new SupabaseClient.Callback() {
-                        @Override
-                        public void onSuccess() {
-                            // Also log to watch history so it appears on Watch Days
-                            SupabaseClient.addToWatchHistory(
-                                    session.getSupabaseUserId(),
-                                    movieId,
-                                    item.getTitle(),
-                                    finalMediaType,
-                                    posterUrl,
-                                    new SupabaseClient.Callback() {
-                                        @Override public void onSuccess() {}
-                                        @Override public void onFailure(String e) {}
-                                    });
+                        @Override public void onSuccess() {
                             if (getActivity() == null) return;
                             getActivity().runOnUiThread(() -> {
                                 if (!isAdded()) return;
                                 Toast.makeText(requireContext(),
-                                        item.getTitle() + " added to watchlist!",
-                                        Toast.LENGTH_SHORT).show();
+                                        item.getTitle() + " added to watchlist!", Toast.LENGTH_SHORT).show();
                             });
                         }
-
-                        @Override
-                        public void onFailure(String error) {
+                        @Override public void onFailure(String error) {
                             if (getActivity() == null) return;
                             getActivity().runOnUiThread(() -> {
                                 if (!isAdded()) return;
                                 Toast.makeText(requireContext(),
-                                        "Failed to add: " + error,
-                                        Toast.LENGTH_SHORT).show();
+                                        "Failed to add: " + error, Toast.LENGTH_SHORT).show();
                             });
                         }
                     });
@@ -126,276 +108,290 @@ public class RecommendationsFragment extends Fragment {
 
         recyclerView.setAdapter(adapter);
         setupMoodSpinner();
-
-        // Start loading recommendations
-        loadRecommendations();
+        loadFromSupabase();
     }
-    private void setupMoodSpinner() {
-        List<String> moods = new ArrayList<>();
-        moods.add("None");
-        moods.add("Happy");
-        moods.add("Excited");
-        moods.add("Relaxed");
-        moods.add("Scared");
-        moods.add("Emotional");
 
+    // ── Mood spinner ──────────────────────────────────────────────────────────
+
+    private void setupMoodSpinner() {
+        String[] moods = {"Any Mood", "Happy", "Excited", "Relaxed", "Scared", "Emotional"};
         ArrayAdapter<String> spinnerAdapter = new ArrayAdapter<>(
-                requireContext(),
-                android.R.layout.simple_spinner_item,
-                moods
-        );
+                requireContext(), android.R.layout.simple_spinner_item, moods);
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         moodSpinner.setAdapter(spinnerAdapter);
-
-        moodSpinner.setSelection(0);
 
         moodSpinner.setOnItemSelectedListener(new AdapterView.OnItemSelectedListener() {
             @Override
             public void onItemSelected(AdapterView<?> parent, View view, int position, long id) {
                 String selected = parent.getItemAtPosition(position).toString();
+                selectedMood = "Any Mood".equalsIgnoreCase(selected) ? "" : selected.toLowerCase();
 
-                if ("None".equalsIgnoreCase(selected)) {
-                    selectedMood = "";
-                } else {
-                    selectedMood = selected.toLowerCase();
-                }
-
+                // Re-score with new mood if candidates are already loaded
                 if (!candidateMovies.isEmpty()) {
                     generateRecommendations();
                 }
             }
-
-            @Override
-            public void onNothingSelected(AdapterView<?> parent) {
+            @Override public void onNothingSelected(AdapterView<?> parent) {
                 selectedMood = "";
             }
         });
     }
 
-    // Main entry point for recommendation loading
-    private void loadRecommendations() {
-        // Clear old data before rebuilding
+    // ── Data loading ──────────────────────────────────────────────────────────
+
+    /**
+     * Step 1: load user watchlist from Supabase.
+     * Retries up to 5 times with 2 s delay while UserSession is not ready.
+     */
+    private void loadFromSupabase() {
+        if (!UserSession.get().isLoaded()) {
+            if (sessionRetries < 5) {
+                sessionRetries++;
+                new Handler(Looper.getMainLooper()).postDelayed(() -> {
+                    if (isAdded()) loadFromSupabase();
+                }, 2000);
+            } else {
+                // Session never loaded — still show popular recommendations with mood support
+                fetchCandidateMovies();
+            }
+            return;
+        }
+        sessionRetries = 0;
+
         likedMovies.clear();
         watchedMovies.clear();
         dislikedMovies.clear();
         candidateMovies.clear();
 
-        // Get saved user list entries from shared repository
-        List<ListEntry> entries = ListRepository.getAllEntries();
+        SupabaseClient.getWatchlist(UserSession.get().getSupabaseUserId(),
+                new SupabaseClient.ListCallback() {
+                    @Override
+                    public void onSuccess(JSONArray data) {
+                        List<ListEntry> entries = new ArrayList<>();
+                        for (int i = 0; i < data.length(); i++) {
+                            try {
+                                JSONObject obj  = data.getJSONObject(i);
+                                String title    = obj.optString("title", "");
+                                String type     = obj.optString("media_type", "movie")
+                                                     .equalsIgnoreCase("tv") ? "TV Show" : "Movie";
+                                String status   = obj.optString("status", "Watching");
+                                String movieId  = obj.optString("movie_id", "");
+                                int sid         = obj.optInt("id", -1);
 
-        // If there are no saved entries, show empty state
-        if (entries == null || entries.isEmpty()) {
-            showEmpty();
-            return;
-        }
+                                ListEntry e = new ListEntry(title, type, status, 0, status);
+                                e.setMovieId(movieId);
+                                e.setSupabaseId(sid);
+                                entries.add(e);
+                            } catch (Exception ignored) {}
+                        }
 
-        // Resolve each ListEntry title into a real TMDb item
-        resolveUserEntries(entries, 0);
+                        if (getActivity() == null) return;
+                        getActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            if (entries.isEmpty()) {
+                                // No watchlist — still show mood-filtered popular content
+                                fetchCandidateMovies();
+                            } else {
+                                resolveUserEntries(entries, 0);
+                            }
+                        });
+                    }
+
+                    @Override
+                    public void onFailure(String error) {
+                        if (getActivity() == null) return;
+                        getActivity().runOnUiThread(() -> {
+                            if (isAdded()) fetchCandidateMovies();
+                        });
+                    }
+                });
     }
 
-    // Recursively resolves user list entries to TMDb search results
-    // This uses searchMulti(title) so we can turn saved titles into real TmdbMovie objects
+    // ── Entry resolution ──────────────────────────────────────────────────────
+
+    /**
+     * Step 2: resolve each ListEntry title to a TmdbMovie via searchMulti,
+     * then bucket into liked/watched/disliked based on status.
+     */
     private void resolveUserEntries(List<ListEntry> entries, int index) {
-        // Base case: once all entries are processed, fetch candidate recommendation items
         if (index >= entries.size()) {
             fetchCandidateMovies();
             return;
         }
 
-        // Current entry being resolved
         ListEntry entry = entries.get(index);
-
-        // Search TMDb using the saved title
         TmdbClient.getService().searchMulti(entry.getTitle()).enqueue(new Callback<TmdbResponse>() {
             @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call, @NonNull Response<TmdbResponse> response) {
+            public void onResponse(@NonNull Call<TmdbResponse> call,
+                                   @NonNull Response<TmdbResponse> response) {
                 if (!isAdded()) return;
-
-                // If search succeeded, try to find the best matching TMDb result
-                if (response.isSuccessful() && response.body() != null && response.body().getResults() != null) {
-                    TmdbMovie bestMatch = findBestMatch(entry, response.body().getResults());
-
-                    // Add matched item to liked/watched lists based on list status
-                    if (bestMatch != null) {
-                        mapEntryToUserLists(entry, bestMatch);
-                    }
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResults() != null) {
+                    TmdbMovie best = findBestMatch(entry, response.body().getResults());
+                    if (best != null) mapEntryToUserLists(entry, best);
                 }
-
-                // Move to next saved entry
                 resolveUserEntries(entries, index + 1);
             }
 
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (!isAdded()) return;
-
-                // Even if one search fails, continue resolving the rest
                 resolveUserEntries(entries, index + 1);
             }
         });
     }
 
-    // Picks the best search result for a given saved list entry
-    // Tries exact title + media type first, then type match, then falls back to first result
     private TmdbMovie findBestMatch(ListEntry entry, List<TmdbMovie> results) {
-        if (results == null || results.isEmpty()) {
-            return null;
+        if (results == null || results.isEmpty()) return null;
+        String desiredType = entry.getType(); // "Movie" or "TV Show"
+
+        // Exact title + correct type
+        for (TmdbMovie m : results) {
+            if (m == null || m.getDisplayTitle() == null) continue;
+            if (typeMatches(m, desiredType) && m.getDisplayTitle().equalsIgnoreCase(entry.getTitle()))
+                return m;
         }
-
-        String desiredType = entry.getType();
-
-        // First pass: exact title and correct media type
-        for (TmdbMovie movie : results) {
-            if (movie == null || movie.getDisplayTitle() == null) {
-                continue;
-            }
-
-            String mediaType = movie.getMediaType();
-            boolean typeMatches = false;
-
-            if ("Movie".equalsIgnoreCase(desiredType) && "movie".equalsIgnoreCase(mediaType)) {
-                typeMatches = true;
-            } else if ("TV Show".equalsIgnoreCase(desiredType) && "tv".equalsIgnoreCase(mediaType)) {
-                typeMatches = true;
-            }
-
-            if (typeMatches && movie.getDisplayTitle().equalsIgnoreCase(entry.getTitle())) {
-                return movie;
-            }
+        // Correct type only
+        for (TmdbMovie m : results) {
+            if (m != null && typeMatches(m, desiredType)) return m;
         }
-
-        // Second pass: correct media type only
-        for (TmdbMovie movie : results) {
-            if (movie == null) {
-                continue;
-            }
-
-            String mediaType = movie.getMediaType();
-
-            if ("Movie".equalsIgnoreCase(desiredType) && "movie".equalsIgnoreCase(mediaType)) {
-                return movie;
-            } else if ("TV Show".equalsIgnoreCase(desiredType) && "tv".equalsIgnoreCase(mediaType)) {
-                return movie;
-            }
-        }
-
-        // Final fallback: just use the first result
         return results.get(0);
     }
 
-    // Converts a saved ListEntry into profile data for the recommender
-    // Current simple rule:
-    // - Finished = watched + liked
-    // - Watching = liked
-    // - Disliked list is empty for now because your current list model doesn't store dislikes
+    private boolean typeMatches(TmdbMovie m, String desiredType) {
+        String mt = m.getMediaType();
+        if ("Movie".equalsIgnoreCase(desiredType)) return "movie".equalsIgnoreCase(mt);
+        if ("TV Show".equalsIgnoreCase(desiredType)) return "tv".equalsIgnoreCase(mt);
+        return false;
+    }
+
+    /**
+     * Maps a resolved TmdbMovie into the correct user list based on watchlist status.
+     *  Liked    → likedMovies (positive signal)
+     *  Disliked → dislikedMovies (negative signal)
+     *  Finished → watchedMovies + likedMovies
+     *  Watching → watchedMovies
+     */
     private void mapEntryToUserLists(ListEntry entry, TmdbMovie movie) {
         String status = entry.getStatus();
-        String playlist = entry.getPlaylist();
 
-        if ("Finished".equalsIgnoreCase(status)) {
-            if (!containsMovieId(watchedMovies, movie.getId())) {
-                watchedMovies.add(movie);
-            }
-            if (!containsMovieId(likedMovies, movie.getId())) {
-                likedMovies.add(movie);
-            }
-        } else if ("Watching".equalsIgnoreCase(status)) {
-            if (!containsMovieId(likedMovies, movie.getId())) {
-                likedMovies.add(movie);
-            }
-        }
-
-        if ("Finished".equalsIgnoreCase(playlist)) {
-            if (!containsMovieId(watchedMovies, movie.getId())) {
-                watchedMovies.add(movie);
-            }
+        if ("Liked".equalsIgnoreCase(status)) {
+            addUnique(likedMovies, movie);
+        } else if ("Disliked".equalsIgnoreCase(status)) {
+            addUnique(dislikedMovies, movie);
+        } else if ("Finished".equalsIgnoreCase(status)) {
+            addUnique(watchedMovies, movie);
+            addUnique(likedMovies, movie);
+        } else {
+            // Watching
+            addUnique(watchedMovies, movie);
         }
     }
 
-    // Fetches popular movies from TMDb to use as candidate recommendation pool
+    private void addUnique(List<TmdbMovie> list, TmdbMovie movie) {
+        for (TmdbMovie m : list) {
+            if (m != null && m.getId() == movie.getId()) return;
+        }
+        list.add(movie);
+    }
+
+    // ── Candidate fetching ────────────────────────────────────────────────────
+
+    /**
+     * Step 3: fetch 3 pages of popular movies (60 results) + 1 page of TV shows.
+     * Pages are fetched sequentially; once all are done, generateRecommendations() is called.
+     * Target: ~50 movies in the candidate pool before scoring.
+     */
+    private int moviePagesLoaded = 0;
+    private static final int MOVIE_PAGES = 3; // 3 × 20 = 60 movies
+
     private void fetchCandidateMovies() {
-        TmdbClient.getService().getPopularMovies().enqueue(new Callback<TmdbResponse>() {
+        moviePagesLoaded = 0;
+        fetchMoviePage(1);
+    }
+
+    private void fetchMoviePage(int page) {
+        TmdbClient.getService().getPopularMoviesPage(page).enqueue(new Callback<TmdbResponse>() {
             @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call, @NonNull Response<TmdbResponse> response) {
+            public void onResponse(@NonNull Call<TmdbResponse> call,
+                                   @NonNull Response<TmdbResponse> response) {
                 if (!isAdded()) return;
-
-                if (response.isSuccessful() && response.body() != null && response.body().getResults() != null) {
-                    candidateMovies.addAll(response.body().getResults());
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResults() != null) {
+                    for (TmdbMovie m : response.body().getResults()) {
+                        if (m != null) { m.setMediaType("movie"); candidateMovies.add(m); }
+                    }
                 }
-
-                // After movies load, fetch TV shows too
-                fetchCandidateTv();
+                moviePagesLoaded++;
+                if (moviePagesLoaded < MOVIE_PAGES) {
+                    fetchMoviePage(page + 1);
+                } else {
+                    fetchCandidateTv();
+                }
             }
 
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
                 if (!isAdded()) return;
-
-                // Still continue to fetch TV even if movie call fails
-                fetchCandidateTv();
+                moviePagesLoaded++;
+                if (moviePagesLoaded < MOVIE_PAGES) {
+                    fetchMoviePage(page + 1);
+                } else {
+                    fetchCandidateTv();
+                }
             }
         });
     }
 
-    // Fetches popular TV shows and adds them to the candidate pool
+    /** Step 3b: fetch popular TV shows and add to candidate pool. */
     private void fetchCandidateTv() {
         TmdbClient.getService().getPopularTvShows().enqueue(new Callback<TmdbResponse>() {
             @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call, @NonNull Response<TmdbResponse> response) {
+            public void onResponse(@NonNull Call<TmdbResponse> call,
+                                   @NonNull Response<TmdbResponse> response) {
                 if (!isAdded()) return;
-
-                if (response.isSuccessful() && response.body() != null && response.body().getResults() != null) {
-                    candidateMovies.addAll(response.body().getResults());
+                if (response.isSuccessful() && response.body() != null
+                        && response.body().getResults() != null) {
+                    for (TmdbMovie m : response.body().getResults()) {
+                        if (m != null) { m.setMediaType("tv"); candidateMovies.add(m); }
+                    }
                 }
-
-                // Once candidates are ready, generate final recommendations
                 generateRecommendations();
             }
-
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                if (!isAdded()) return;
-
-                // Even if TV fetch fails, try generating with whatever we have
-                generateRecommendations();
+                if (isAdded()) generateRecommendations();
             }
         });
     }
 
-    // Runs the recommendation engine and updates the RecyclerView
+    // ── Scoring ───────────────────────────────────────────────────────────────
+
+    /** Step 4: score candidates off the main thread, then update UI. */
     private void generateRecommendations() {
-        List<ScoredRec> results = RecommendationsBuilder.generateTopRecommendations(
-                likedMovies,
-                dislikedMovies,
-                watchedMovies,
-                candidateMovies,
-                selectedMood,
-                20
-        );
+        // Snapshot current mood so background thread uses the right value
+        final String mood = selectedMood;
+        final List<TmdbMovie> liked    = new ArrayList<>(likedMovies);
+        final List<TmdbMovie> disliked = new ArrayList<>(dislikedMovies);
+        final List<TmdbMovie> watched  = new ArrayList<>(watchedMovies);
+        final List<TmdbMovie> cands    = new ArrayList<>(candidateMovies);
 
-        adapter.setRecommendations(results);
+        new Thread(() -> {
+            List<ScoredRec> results = RecommendationsBuilder.generateTopRecommendations(
+                    liked, disliked, watched, cands, mood, 20);
 
-        if (results == null || results.isEmpty()) {
-            showEmpty();
-        } else {
-            emptyText.setVisibility(View.GONE);
-            recyclerView.setVisibility(View.VISIBLE);
-        }
-    }
-
-    // Shows the empty-state message and hides the list
-    private void showEmpty() {
-        emptyText.setVisibility(View.VISIBLE);
-        recyclerView.setVisibility(View.GONE);
-    }
-
-    // Utility method to avoid duplicate items by TMDb id
-    private boolean containsMovieId(List<TmdbMovie> list, int id) {
-        for (TmdbMovie movie : list) {
-            if (movie != null && movie.getId() == id) {
-                return true;
-            }
-        }
-        return false;
+            if (getActivity() == null) return;
+            getActivity().runOnUiThread(() -> {
+                if (!isAdded()) return;
+                adapter.setRecommendations(results);
+                if (results == null || results.isEmpty()) {
+                    emptyText.setVisibility(View.VISIBLE);
+                    recyclerView.setVisibility(View.GONE);
+                } else {
+                    emptyText.setVisibility(View.GONE);
+                    recyclerView.setVisibility(View.VISIBLE);
+                }
+            });
+        }).start();
     }
 }

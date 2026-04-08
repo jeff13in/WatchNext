@@ -21,7 +21,6 @@ import java.util.Map;
 
 public class PreferencesFragment extends Fragment {
 
-    private static final String PREFS_NAME = "watchnext_prefs";
     private static final String[] GENRES = {
             "Action", "Drama", "Sci-Fi", "Fantasy", "Crime", "Comedy", "Horror", "Romance"
     };
@@ -40,7 +39,7 @@ public class PreferencesFragment extends Fragment {
     @Override
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
-        prefs = requireContext().getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        prefs = requireContext().getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
 
         View scrollCurrent = view.findViewById(R.id.scroll_current);
         View scrollSetNew = view.findViewById(R.id.scroll_set_new);

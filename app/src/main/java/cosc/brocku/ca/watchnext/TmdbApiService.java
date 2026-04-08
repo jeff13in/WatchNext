@@ -10,14 +10,31 @@ public interface TmdbApiService {
     @GET("movie/popular")
     Call<TmdbResponse> getPopularMovies();
 
+    @GET("movie/popular")
+    Call<TmdbResponse> getPopularMoviesPage(@Query("page") int page);
+
     @GET("tv/popular")
     Call<TmdbResponse> getPopularTvShows();
 
     @GET("discover/movie")
-    Call<TmdbResponse> discoverMovies(@Query("with_genres") int genreId);
+    Call<TmdbResponse> discoverMoviesFull(
+            @Query("with_genres") Integer genreId,
+            @Query("primary_release_year") Integer year,
+            @Query("primary_release_date.gte") String dateGte,
+            @Query("primary_release_date.lte") String dateLte,
+            @Query("vote_average.gte") Float minRating,
+            @Query("sort_by") String sortBy
+    );
 
     @GET("discover/tv")
-    Call<TmdbResponse> discoverTv(@Query("with_genres") int genreId);
+    Call<TmdbResponse> discoverTvFull(
+            @Query("with_genres") Integer genreId,
+            @Query("first_air_date_year") Integer year,
+            @Query("first_air_date.gte") String dateGte,
+            @Query("first_air_date.lte") String dateLte,
+            @Query("vote_average.gte") Float minRating,
+            @Query("sort_by") String sortBy
+    );
 
     @GET("search/multi")
     Call<TmdbResponse> searchMulti(@Query("query") String query);
@@ -33,4 +50,10 @@ public interface TmdbApiService {
             @Path("tv_id") int tvId,
             @Query("append_to_response") String appendToResponse
     );
+
+    @GET("movie/{movie_id}/similar")
+    Call<TmdbResponse> getSimilarMovies(@Path("movie_id") int movieId);
+
+    @GET("tv/{tv_id}/similar")
+    Call<TmdbResponse> getSimilarTv(@Path("tv_id") int tvId);
 }

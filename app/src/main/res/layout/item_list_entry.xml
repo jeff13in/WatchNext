@@ -11,9 +11,24 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:gravity="center_vertical"
-        android:orientation="horizontal"
-        android:padding="12dp">
+        android:orientation="horizontal">
 
+        <!-- Colored status indicator bar -->
+        <View
+            android:id="@+id/view_status_indicator"
+            android:layout_width="5dp"
+            android:layout_height="match_parent"
+            android:minHeight="72dp"
+            android:background="@color/btn_watchlist" />
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:gravity="center_vertical"
+            android:orientation="horizontal"
+            android:padding="12dp">
+
+        <!-- Title / type / status -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -40,22 +55,46 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="2dp"
                 android:textSize="12sp" />
+
+            <TextView
+                android:id="@+id/tv_entry_date"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="3dp"
+                android:textSize="11sp"
+                android:textColor="?attr/colorOnSurfaceVariant"
+                android:visibility="gone" />
         </LinearLayout>
 
+        <!-- Episode increment (TV only, hidden for movies, disabled when Finished) -->
         <ImageButton
-            android:id="@+id/btn_update"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:id="@+id/btn_episode"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Update progress"
-            android:src="@android:drawable/ic_media_next" />
+            android:contentDescription="Next episode"
+            android:src="@android:drawable/ic_media_next"
+            android:visibility="gone" />
 
+        <!-- Mark Finished / Move to Watching toggle -->
         <ImageButton
-            android:id="@+id/btn_edit"
-            android:layout_width="40dp"
-            android:layout_height="40dp"
+            android:id="@+id/btn_finish"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
             android:background="?attr/selectableItemBackgroundBorderless"
-            android:contentDescription="Edit entry"
-            android:src="@android:drawable/ic_menu_edit" />
+            android:contentDescription="Mark finished"
+            android:src="@android:drawable/checkbox_on_background" />
+
+        <!-- Remove from list -->
+        <ImageButton
+            android:id="@+id/btn_remove"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="Remove"
+            android:src="@android:drawable/ic_menu_delete" />
+
+        </LinearLayout>
+
     </LinearLayout>
 </com.google.android.material.card.MaterialCardView>

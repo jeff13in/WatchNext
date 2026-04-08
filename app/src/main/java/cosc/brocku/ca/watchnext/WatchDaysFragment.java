@@ -18,10 +18,12 @@ import org.json.JSONObject;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Date;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Set;
 
 public class WatchDaysFragment extends Fragment {
 
@@ -68,14 +70,17 @@ public class WatchDaysFragment extends Fragment {
         SupabaseClient.getWatchHistory(session.getSupabaseUserId(), new SupabaseClient.ListCallback() {
             @Override
             public void onSuccess(JSONArray data) {
-                // Group titles by date
+                // Group titles by date, skipping duplicate movie_ids
                 Map<String, List<String>> byDate = new LinkedHashMap<>();
+                Set<String> seenMovieIds = new HashSet<>();
                 SimpleDateFormat inputFmt = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
                 SimpleDateFormat displayFmt = new SimpleDateFormat("MMMM d, yyyy", Locale.getDefault());
 
                 for (int i = 0; i < data.length(); i++) {
                     try {
                         JSONObject item = data.getJSONObject(i);
+                        String movieId = item.optString("movie_id", "");
+                        if (!movieId.isEmpty() && !seenMovieIds.add(movieId)) continue; // skip duplicate
                         String title = item.optString("title", "Unknown");
                         String watchedAt = item.optString("watched_at", "");
 

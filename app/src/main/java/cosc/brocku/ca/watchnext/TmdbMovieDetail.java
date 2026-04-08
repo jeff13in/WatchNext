@@ -38,6 +38,9 @@ public class TmdbMovieDetail {
     @SerializedName("videos")
     private TmdbVideoResponse videos;
 
+    @SerializedName("number_of_episodes")
+    private int numberOfEpisodes;
+
     public static class Genre {
         @SerializedName("name")
         private String name;
@@ -88,5 +91,9 @@ public class TmdbMovieDetail {
 
     public TmdbVideoResponse getVideos() {
         return videos;
+    }
+
+    public int getNumberOfEpisodes() {
+        return numberOfEpisodes;
     }
 }

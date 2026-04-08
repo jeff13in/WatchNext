@@ -24,6 +24,7 @@ public class RecommendationAdapter extends RecyclerView.Adapter<RecommendationAd
 
     private Context context;
     private List<ScoredRec> recommendations;
+    private double maxScore = 1.0; // used to normalise scores to 0-100%
     private OnWatchlistClickListener listener;
 
     public RecommendationAdapter(Context context, OnWatchlistClickListener listener) {
@@ -32,8 +33,13 @@ public class RecommendationAdapter extends RecyclerView.Adapter<RecommendationAd
         this.recommendations = new ArrayList<>();
     }
 
-    public void setRecommendations(List<ScoredRec> recommendations) {
-        this.recommendations = recommendations != null ? recommendations : new ArrayList<ScoredRec>();
+    public void setRecommendations(List<ScoredRec> recs) {
+        this.recommendations = recs != null ? recs : new ArrayList<>();
+        // Find the highest raw score so everything else is relative to it
+        maxScore = 1.0;
+        for (ScoredRec r : this.recommendations) {
+            if (r.getScore() > maxScore) maxScore = r.getScore();
+        }
         notifyDataSetChanged();
     }
 
@@ -50,7 +56,8 @@ public class RecommendationAdapter extends RecyclerView.Adapter<RecommendationAd
         ProfileMovieShow item = rec.getItem();
 
         holder.titleText.setText(item.getTitle());
-        holder.scoreText.setText("Score: " + String.format("%.2f", rec.getScore()));
+        int matchPct = (int) Math.round((rec.getScore() / maxScore) * 100);
+        holder.scoreText.setText(matchPct + "% Match");
         holder.explanationText.setText(rec.getExplanation());
 
         if (item.getSourceMovie() != null && item.getSourceMovie().getPosterUrl() != null) {

@@ -3,7 +3,6 @@ package cosc.brocku.ca.watchnext;
 import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Bundle;
-import android.view.MenuItem;
 import android.widget.ImageButton;
 import android.widget.TextView;
 import androidx.annotation.NonNull;
@@ -20,7 +19,6 @@ import com.google.firebase.auth.FirebaseUser;
 
 public class MainActivity extends AppCompatActivity {
 
-    private static final String PREFS_NAME = "watchnext_prefs";
     private DrawerLayout drawerLayout;
 
     @Override
@@ -43,7 +41,7 @@ public class MainActivity extends AppCompatActivity {
         NavigationView navView = findViewById(R.id.nav_view);
         android.view.View headerView = navView.getHeaderView(0);
         TextView headerEmail = headerView.findViewById(R.id.header_email);
-        SharedPreferences prefs = getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE);
+        SharedPreferences prefs = getSharedPreferences(Constants.PREFS_NAME, Context.MODE_PRIVATE);
         headerEmail.setText(prefs.getString("email", "user@example.com"));
 
         ImageButton btnToggleTheme = headerView.findViewById(R.id.btn_toggle_theme);
@@ -83,10 +81,12 @@ public class MainActivity extends AppCompatActivity {
             int id = item.getItemId();
             if (id == R.id.drawer_profile) {
                 loadFragment(new ProfileFragment(), "Profile");
-            } else if (id == R.id.drawer_playlists || id == R.id.drawer_share_lists) {
+            } else if (id == R.id.drawer_playlists) {
                 loadFragment(new ListsFragment(), "Lists");
+            } else if (id == R.id.drawer_share_lists) {
+                shareWatchlist();
             } else if (id == R.id.drawer_feedback) {
-                loadFragment(new FeedbackFragment(), "Feedback");
+                loadFragment(new FeedbackFragment(), "Liked / Disliked");
             } else if (id == R.id.drawer_preferences) {
                 loadFragment(new PreferencesFragment(), "Preferences");
             }
@@ -118,6 +118,24 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    private void shareWatchlist() {
+        java.util.List<ListEntry> entries = ListRepository.getAllEntries();
+        if (entries.isEmpty()) {
+            android.widget.Toast.makeText(this, "Your watchlist is empty", android.widget.Toast.LENGTH_SHORT).show();
+            return;
+        }
+        StringBuilder sb = new StringBuilder("My WatchNext List:\n\n");
+        for (ListEntry e : entries) {
+            sb.append("• ").append(e.getTitle())
+              .append(" [").append(e.getType()).append("] — ").append(e.getStatus())
+              .append("\n");
+        }
+        android.content.Intent shareIntent = new android.content.Intent(android.content.Intent.ACTION_SEND);
+        shareIntent.setType("text/plain");
+        shareIntent.putExtra(android.content.Intent.EXTRA_TEXT, sb.toString());
+        startActivity(android.content.Intent.createChooser(shareIntent, "Share my watchlist"));
+    }
+
     private void loadFragment(Fragment fragment, String title) {
         if (getSupportActionBar() != null) {
             getSupportActionBar().setTitle(title);
@@ -128,8 +146,4 @@ public class MainActivity extends AppCompatActivity {
                 .commit();
     }
 
-    @Override
-    public boolean onOptionsItemSelected(@NonNull MenuItem item) {
-        return super.onOptionsItemSelected(item);
-    }
 }

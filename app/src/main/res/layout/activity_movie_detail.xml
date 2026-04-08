@@ -116,6 +116,29 @@
             android:textColor="@color/detail_text_secondary"
             android:lineSpacingExtra="3dp" />
 
+        <!-- ── Similar titles ── -->
+        <TextView
+            android:id="@+id/tv_similar_header"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="20dp"
+            android:paddingLeft="16dp"
+            android:paddingRight="16dp"
+            android:text="More Like This"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <androidx.recyclerview.widget.RecyclerView
+            android:id="@+id/rv_similar"
+            android:layout_width="match_parent"
+            android:layout_height="200dp"
+            android:layout_marginTop="8dp"
+            android:clipToPadding="false"
+            android:paddingLeft="12dp"
+            android:paddingRight="12dp"
+            android:visibility="gone" />
+
         <!-- ── Divider ── -->
         <View
             android:layout_width="match_parent"
@@ -204,9 +227,9 @@
                     app:strokeColor="@color/btn_like"
                     app:strokeWidth="2dp"
                     app:cornerRadius="10dp"
-                    app:icon="@android:drawable/btn_star_big_on"
+                    app:icon="@drawable/ic_thumb_up"
                     app:iconTint="@color/btn_like"
-                    app:iconSize="16dp" />
+                    app:iconSize="20dp" />
 
                 <com.google.android.material.button.MaterialButton
                     android:id="@+id/btn_dislike"
@@ -222,11 +245,130 @@
                     app:strokeColor="@color/btn_dislike"
                     app:strokeWidth="2dp"
                     app:cornerRadius="10dp"
-                    app:icon="@android:drawable/btn_star_big_off"
+                    app:icon="@drawable/ic_thumb_down"
                     app:iconTint="@color/btn_dislike"
-                    app:iconSize="16dp" />
+                    app:iconSize="20dp" />
             </LinearLayout>
 
         </LinearLayout>
+
+        <!-- ── My Review ── -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:background="@color/detail_divider" />
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginLeft="16dp"
+            android:layout_marginRight="16dp"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="32dp"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeColor="@color/detail_divider"
+            app:strokeWidth="1.5dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <!-- Header row -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:gravity="center_vertical"
+                    android:layout_marginBottom="8dp">
+
+                    <TextView
+                        android:layout_width="0dp"
+                        android:layout_height="wrap_content"
+                        android:layout_weight="1"
+                        android:text="My Review"
+                        android:textSize="16sp"
+                        android:textStyle="bold"
+                        android:textColor="?attr/colorOnSurface" />
+
+                    <TextView
+                        android:id="@+id/tv_review_updated"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:textSize="11sp"
+                        android:textColor="?attr/colorOnSurfaceVariant"
+                        android:visibility="gone" />
+                </LinearLayout>
+
+                <!-- READ mode: styled text block -->
+                <TextView
+                    android:id="@+id/tv_review_display"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:textSize="14sp"
+                    android:lineSpacingExtra="4dp"
+                    android:textColor="?attr/colorOnSurface"
+                    android:paddingTop="4dp"
+                    android:paddingBottom="4dp"
+                    android:visibility="gone" />
+
+                <!-- EDIT mode: outlined input -->
+                <com.google.android.material.textfield.TextInputLayout
+                    android:id="@+id/til_review"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="4dp"
+                    style="@style/Widget.MaterialComponents.TextInputLayout.OutlinedBox"
+                    android:hint="Write your thoughts…"
+                    android:visibility="visible">
+
+                    <com.google.android.material.textfield.TextInputEditText
+                        android:id="@+id/et_review"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:minLines="4"
+                        android:maxLines="10"
+                        android:gravity="top|start"
+                        android:inputType="textMultiLine|textCapSentences"
+                        android:scrollbars="vertical" />
+                </com.google.android.material.textfield.TextInputLayout>
+
+                <!-- Button row: Save (edit mode) / Edit (read mode) -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal"
+                    android:layout_marginTop="12dp">
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_save_review"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Save Review"
+                        android:textSize="14sp"
+                        app:cornerRadius="10dp"
+                        android:visibility="visible" />
+
+                    <com.google.android.material.button.MaterialButton
+                        android:id="@+id/btn_edit_review"
+                        style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                        android:layout_width="0dp"
+                        android:layout_height="48dp"
+                        android:layout_weight="1"
+                        android:text="Edit"
+                        android:textSize="14sp"
+                        app:cornerRadius="10dp"
+                        android:visibility="gone" />
+
+                </LinearLayout>
+
+            </LinearLayout>
+        </com.google.android.material.card.MaterialCardView>
+
     </LinearLayout>
 </ScrollView>

@@ -87,19 +87,40 @@ public class SupabaseClient {
         addToWatchlist(userId, movieId, title, posterPath, mediaType, "Watching", callback);
     }
 
+    /**
+     * Upsert — if the movie is already in the watchlist, update its status.
+     * If not, insert a new row. Prevents duplicate entries.
+     */
     public static void addToWatchlist(int userId, String movieId, String title,
                                       String posterPath, String mediaType, String status,
                                       Callback callback) {
         executor.execute(() -> {
             try {
-                JSONObject body = new JSONObject();
-                body.put("user_id", userId);
-                body.put("movie_id", movieId);
-                body.put("title", title);
-                body.put("poster_path", posterPath != null ? posterPath : "");
-                body.put("media_type", mediaType);
-                body.put("status", status);
-                post("watchlist", body, callback);
+                // Check if entry already exists
+                String checkEndpoint = "watchlist?user_id=eq." + userId
+                        + "&movie_id=eq." + movieId + "&limit=1";
+                HttpURLConnection checkConn = openConnection(BASE_URL + checkEndpoint, "GET");
+                String checkResponse = readResponse(checkConn);
+                checkConn.disconnect();
+
+                JSONArray existing = new JSONArray(checkResponse);
+                if (existing.length() > 0) {
+                    // Already exists — update status only
+                    int existingId = existing.getJSONObject(0).getInt("id");
+                    JSONObject body = new JSONObject();
+                    body.put("status", status);
+                    patch("watchlist?id=eq." + existingId, body, callback);
+                } else {
+                    // New entry — insert
+                    JSONObject body = new JSONObject();
+                    body.put("user_id", userId);
+                    body.put("movie_id", movieId);
+                    body.put("title", title);
+                    body.put("poster_path", posterPath != null ? posterPath : "");
+                    body.put("media_type", mediaType);
+                    body.put("status", status);
+                    post("watchlist", body, callback);
+                }
             } catch (Exception e) {
                 callback.onFailure(e.getMessage());
             }
@@ -107,10 +128,17 @@ public class SupabaseClient {
     }
 
     public static void updateWatchlistStatus(int id, String status, Callback callback) {
+        updateWatchlistStatus(id, status, null, callback);
+    }
+
+    public static void updateWatchlistStatus(int id, String status, String watchedAt, Callback callback) {
         executor.execute(() -> {
             try {
                 JSONObject body = new JSONObject();
                 body.put("status", status);
+                if (watchedAt != null && !watchedAt.isEmpty()) {
+                    body.put("watched_at", watchedAt);
+                }
                 patch("watchlist?id=eq." + id, body, callback);
             } catch (Exception e) {
                 callback.onFailure(e.getMessage());
@@ -150,15 +178,43 @@ public class SupabaseClient {
 
     public static void addToWatchHistory(int userId, String movieId, String title,
                                          String mediaType, String posterPath, Callback callback) {
+        addToWatchHistory(userId, movieId, title, mediaType, posterPath, null, callback);
+    }
+
+    public static void addToWatchHistory(int userId, String movieId, String title,
+                                         String mediaType, String posterPath,
+                                         String watchedAt, Callback callback) {
         executor.execute(() -> {
             try {
-                JSONObject body = new JSONObject();
-                body.put("user_id", userId);
-                body.put("movie_id", movieId);
-                body.put("title", title);
-                body.put("media_type", mediaType);
-                body.put("poster_path", posterPath != null ? posterPath : "");
-                post("watch_history", body, callback);
+                // Check if entry already exists for this user+movie
+                String checkEndpoint = "watch_history?user_id=eq." + userId
+                        + "&movie_id=eq." + movieId + "&limit=1";
+                HttpURLConnection checkConn = openConnection(BASE_URL + checkEndpoint, "GET");
+                String checkResponse = readResponse(checkConn);
+                checkConn.disconnect();
+
+                JSONArray existing = new JSONArray(checkResponse);
+                if (existing.length() > 0) {
+                    // Already exists — update watched_at only
+                    int existingId = existing.getJSONObject(0).getInt("id");
+                    JSONObject body = new JSONObject();
+                    if (watchedAt != null && !watchedAt.isEmpty()) {
+                        body.put("watched_at", watchedAt);
+                    }
+                    patch("watch_history?id=eq." + existingId, body, callback);
+                } else {
+                    // New entry
+                    JSONObject body = new JSONObject();
+                    body.put("user_id", userId);
+                    body.put("movie_id", movieId);
+                    body.put("title", title);
+                    body.put("media_type", mediaType);
+                    body.put("poster_path", posterPath != null ? posterPath : "");
+                    if (watchedAt != null && !watchedAt.isEmpty()) {
+                        body.put("watched_at", watchedAt);
+                    }
+                    post("watch_history", body, callback);
+                }
             } catch (Exception e) {
                 callback.onFailure(e.getMessage());
             }
@@ -170,6 +226,32 @@ public class SupabaseClient {
                 "watch_history?user_id=eq." + userId + "&order=watched_at.desc",
                 callback
         ));
+    }
+
+    // ── Reviews ───────────────────────────────────────────────────────────────
+
+    public static void getReview(int userId, String movieId, ListCallback callback) {
+        executor.execute(() -> getList(
+                "reviews?user_id=eq." + userId + "&movie_id=eq." + movieId + "&limit=1",
+                callback
+        ));
+    }
+
+    public static void upsertReview(int userId, String movieId, String title,
+                                    String mediaType, String reviewText, Callback callback) {
+        executor.execute(() -> {
+            try {
+                JSONObject body = new JSONObject();
+                body.put("user_id", userId);
+                body.put("movie_id", movieId);
+                body.put("title", title);
+                body.put("media_type", mediaType);
+                body.put("review_text", reviewText);
+                postUpsert("reviews", body, "user_id,movie_id", callback);
+            } catch (Exception e) {
+                callback.onFailure(e.getMessage());
+            }
+        });
     }
 
     // ── Followers ─────────────────────────────────────────────────────────────

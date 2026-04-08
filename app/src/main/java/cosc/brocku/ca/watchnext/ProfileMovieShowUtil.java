@@ -14,13 +14,23 @@ public class ProfileMovieShowUtil {
             String director
     ) {
         Set<String> tags = new HashSet<>();
-        //adding genre tags
+        //adding genre tags — also add normalized single-word aliases for compound genres
         List<Integer> genreIds = movie.getGenreIds();
         if (genreIds != null) {
             for (Integer id : genreIds) {
                 String genreName = TmdbMovie.getGenreName(id);
                 if (genreName != null) {
                     tags.add(genreName.toLowerCase());
+                    // Normalize compound TV genres so mood inference works for both movies and TV
+                    if (id == 10759) { tags.add("action"); tags.add("adventure"); }
+                    if (id == 10765) { tags.add("sci-fi"); tags.add("fantasy"); }
+                    if (id == 10751) { tags.add("family"); }
+                    if (id == 10762) { tags.add("kids"); }
+                    if (id == 10763) { tags.add("news"); }
+                    if (id == 10764) { tags.add("reality"); }
+                    if (id == 10766) { tags.add("soap"); }
+                    if (id == 10767) { tags.add("talk"); }
+                    if (id == 10768) { tags.add("war"); tags.add("politics"); }
                 }
             }
         }
@@ -104,12 +114,32 @@ public class ProfileMovieShowUtil {
         }
 
         // Sci-fi / fantasy
-        if (currentTags.contains("sci-fi") || currentTags.contains("sci-fi & fantasy")) {
+        if (currentTags.contains("sci-fi") || currentTags.contains("sci-fi & fantasy")
+                || currentTags.contains("fantasy")) {
             moodTags.add("mood:curious");
         }
 
+        // Adventure
+        if (currentTags.contains("adventure")) {
+            moodTags.add("mood:excited");
+        }
+
+        // War / history
+        if (currentTags.contains("war") || currentTags.contains("history")
+                || currentTags.contains("politics")) {
+            moodTags.add("mood:intense");
+            moodTags.add("mood:tense");
+        }
+
+        // Documentary
+        if (currentTags.contains("documentary")) {
+            moodTags.add("mood:curious");
+            moodTags.add("mood:relaxed");
+        }
+
         // Keyword-based boosts
-        if (currentTags.contains("space") || currentTags.contains("future") || currentTags.contains("technology")) {
+        if (currentTags.contains("space") || currentTags.contains("future")
+                || currentTags.contains("technology")) {
             moodTags.add("mood:curious");
         }
 
