@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "1022440646033",
+    "project_id": "watchnext-ba626",
+    "storage_bucket": "watchnext-ba626.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1022440646033:android:a575fe8042143124f6e630",
+        "android_client_info": {
+          "package_name": "cosc.brocku.ca.watchnext"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "1022440646033-80u0or12ebkifaohl7n5lkejitlf69c1.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCU--0xeMt5txQBuOVID5flM1CJZMdEp0A"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1022440646033-80u0or12ebkifaohl7n5lkejitlf69c1.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
