@@ -144,7 +144,7 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
                         String displayDate = rawDate.isEmpty() ? "" : label + " " + DateUtils.formatDate(rawDate);
 
                         String typeLabel = mediaType.equalsIgnoreCase("tv") ? "TV Show" : "Movie";
-                        ListEntry entry = new ListEntry(title, typeLabel, status, -1, status);
+                        ListEntry entry = new ListEntry(title, typeLabel, status, -1);
                         entry.setMovieId(movieId);
                         entry.setSupabaseId(supabaseId);
                         entry.setDisplayDate(displayDate);

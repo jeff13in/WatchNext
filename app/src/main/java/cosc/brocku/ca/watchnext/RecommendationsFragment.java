@@ -178,7 +178,7 @@ public class RecommendationsFragment extends Fragment {
                                 String movieId  = obj.optString("movie_id", "");
                                 int sid         = obj.optInt("id", -1);
 
-                                ListEntry e = new ListEntry(title, type, status, 0, status);
+                                ListEntry e = new ListEntry(title, type, status, 0);
                                 e.setMovieId(movieId);
                                 e.setSupabaseId(sid);
                                 entries.add(e);

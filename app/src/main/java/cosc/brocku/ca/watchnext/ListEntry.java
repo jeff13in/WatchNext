@@ -10,7 +10,7 @@ public class ListEntry {
     private int totalEpisodes = 0; // 0 = unknown
     private String displayDate = ""; // formatted date shown in the list item
 
-    public ListEntry(String title, String type, String status, int episode, String playlist) {
+    public ListEntry(String title, String type, String status, int episode) {
         this.title = title;
         this.type = type;
         this.status = status;
