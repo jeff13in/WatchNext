@@ -20,7 +20,9 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.google.android.material.chip.ChipGroup;
 import com.google.android.material.tabs.TabLayout;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
 import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
@@ -206,16 +208,17 @@ public class HomeFragment extends Fragment {
      * When genreId is null and no filters are active, falls back to popularity.desc
      * so the results match "popular" behaviour via the discover endpoint.
      */
+    private static final int PAGES_TO_FETCH = 5; // 5 pages × 20 results = 100
+
     private void loadDiscover(@Nullable Integer genreId) {
         showLoading(true);
         String type = moviesTabSelected ? "movie" : "tv";
 
-        // Parse year dropdown selection into API params
         Integer yearParam = null;
         String  dateGte   = null;
         String  dateLte   = null;
         switch (selectedYearIndex) {
-            case 0:  break; // All Years — no filter
+            case 0:  break;
             case 1:  yearParam = 2025; break;
             case 2:  yearParam = 2024; break;
             case 3:  yearParam = 2023; break;
@@ -227,36 +230,59 @@ public class HomeFragment extends Fragment {
             case 9:  dateGte = "2000-01-01"; dateLte = "2009-12-31"; break;
             case 10: dateGte = "1990-01-01"; dateLte = "1999-12-31"; break;
         }
-
         Float minRating = selectedRating > 0 ? selectedRating : null;
 
-        Call<TmdbResponse> call = moviesTabSelected
-                ? TmdbClient.getService().discoverMoviesFull(
-                        genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc")
-                : TmdbClient.getService().discoverTvFull(
-                        genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc");
+        List<TmdbMovie> accumulated = Collections.synchronizedList(new ArrayList<>());
+        AtomicInteger remaining = new AtomicInteger(PAGES_TO_FETCH);
 
-        call.enqueue(new Callback<TmdbResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call,
-                                   @NonNull Response<TmdbResponse> response) {
-                if (!isAdded()) return;
-                showLoading(false);
-                if (response.isSuccessful() && response.body() != null) {
-                    List<TmdbMovie> results = response.body().getResults();
-                    stampMediaType(results, type);
-                    adapter.updateMovies(results != null ? results : new ArrayList<>());
-                } else {
-                    Toast.makeText(requireContext(), "Failed to load content", Toast.LENGTH_SHORT).show();
+        final Integer fYear = yearParam;
+        final String fGte = dateGte, fLte = dateLte;
+
+        for (int page = 1; page <= PAGES_TO_FETCH; page++) {
+            Call<TmdbResponse> call = moviesTabSelected
+                    ? TmdbClient.getService().discoverMoviesFull(
+                            genreId, fYear, fGte, fLte, minRating, "popularity.desc", page)
+                    : TmdbClient.getService().discoverTvFull(
+                            genreId, fYear, fGte, fLte, minRating, "popularity.desc", page);
+
+            call.enqueue(new Callback<TmdbResponse>() {
+                @Override
+                public void onResponse(@NonNull Call<TmdbResponse> call,
+                                       @NonNull Response<TmdbResponse> response) {
+                    if (!isAdded()) return;
+                    if (response.isSuccessful() && response.body() != null) {
+                        List<TmdbMovie> batch = response.body().getResults();
+                        if (batch != null) {
+                            stampMediaType(batch, type);
+                            accumulated.addAll(batch);
+                        }
+                    }
+                    if (remaining.decrementAndGet() == 0) {
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            showLoading(false);
+                            adapter.updateMovies(new ArrayList<>(accumulated));
+                        });
+                    }
                 }
-            }
-            @Override
-            public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                if (!isAdded()) return;
-                showLoading(false);
-                Toast.makeText(requireContext(), "Failed to load content", Toast.LENGTH_SHORT).show();
-            }
-        });
+                @Override
+                public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
+                    if (!isAdded()) return;
+                    if (remaining.decrementAndGet() == 0) {
+                        requireActivity().runOnUiThread(() -> {
+                            if (!isAdded()) return;
+                            showLoading(false);
+                            if (accumulated.isEmpty()) {
+                                Toast.makeText(requireContext(),
+                                        "Failed to load content", Toast.LENGTH_SHORT).show();
+                            } else {
+                                adapter.updateMovies(new ArrayList<>(accumulated));
+                            }
+                        });
+                    }
+                }
+            });
+        }
     }
 
     private void loadRecommendations() {
@@ -298,9 +324,9 @@ public class HomeFragment extends Fragment {
 
             Call<TmdbResponse> call = moviesTabSelected
                     ? TmdbClient.getService().discoverMoviesFull(
-                            genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc")
+                            genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc", 1)
                     : TmdbClient.getService().discoverTvFull(
-                            genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc");
+                            genreId, yearParam, dateGte, dateLte, minRating, "popularity.desc", 1);
 
             call.enqueue(new Callback<TmdbResponse>() {
                 @Override

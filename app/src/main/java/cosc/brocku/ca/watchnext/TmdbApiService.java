@@ -23,7 +23,8 @@ public interface TmdbApiService {
             @Query("primary_release_date.gte") String dateGte,
             @Query("primary_release_date.lte") String dateLte,
             @Query("vote_average.gte") Float minRating,
-            @Query("sort_by") String sortBy
+            @Query("sort_by") String sortBy,
+            @Query("page") int page
     );
 
     @GET("discover/tv")
@@ -33,7 +34,8 @@ public interface TmdbApiService {
             @Query("first_air_date.gte") String dateGte,
             @Query("first_air_date.lte") String dateLte,
             @Query("vote_average.gte") Float minRating,
-            @Query("sort_by") String sortBy
+            @Query("sort_by") String sortBy,
+            @Query("page") int page
     );
 
     @GET("search/multi")
