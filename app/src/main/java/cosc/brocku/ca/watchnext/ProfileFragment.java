@@ -85,7 +85,7 @@ public class ProfileFragment extends Fragment {
     }
 
     private void populateStats() {
-        List<ListEntry> entries = ListRepository.getEntries();
+        List<ListEntry> entries = ListRepository.getAllEntries();
         int watchlist = 0, finished = 0, liked = 0;
         for (ListEntry e : entries) {
             switch (e.getStatus()) {
