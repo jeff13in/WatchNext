@@ -54,8 +54,6 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
         tabLayout = view.findViewById(R.id.tab_lists);
         tabLayout.addTab(tabLayout.newTab().setText("Watchlist"));
         tabLayout.addTab(tabLayout.newTab().setText("Finished"));
-        tabLayout.addTab(tabLayout.newTab().setText("Liked"));
-        tabLayout.addTab(tabLayout.newTab().setText("Disliked"));
 
         RecyclerView rv = view.findViewById(R.id.rv_lists);
         rv.setLayoutManager(new LinearLayoutManager(requireContext()));
@@ -230,13 +228,7 @@ public class ListsFragment extends Fragment implements ListEntryAdapter.OnEntryC
     }
 
     private List<ListEntry> getFiltered() {
-        String statusFilter;
-        switch (currentTab) {
-            case "Watchlist": statusFilter = "Watching"; break;
-            case "Liked":     statusFilter = "Liked";    break;
-            case "Disliked":  statusFilter = "Disliked"; break;
-            default:          statusFilter = currentTab; break; // "Finished"
-        }
+        String statusFilter = currentTab.equals("Watchlist") ? "Watching" : currentTab;
         List<ListEntry> result = new ArrayList<>();
         for (ListEntry e : allEntries) {
             boolean matchesTab = e.getStatus().equals(statusFilter);
