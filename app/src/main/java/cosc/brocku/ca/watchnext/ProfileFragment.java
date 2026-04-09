@@ -39,14 +39,6 @@ public class ProfileFragment extends Fragment {
             tvEmail.setText(prefs.getString("email", "user@example.com"));
         }
 
-        Button btnPreferences = view.findViewById(R.id.btn_preferences);
-        btnPreferences.setOnClickListener(v ->
-                requireActivity().getSupportFragmentManager()
-                        .beginTransaction()
-                        .replace(R.id.fragment_container, new PreferencesFragment())
-                        .addToBackStack(null)
-                        .commit());
-
         Button btnSignOut = view.findViewById(R.id.btn_sign_out);
         btnSignOut.setOnClickListener(v -> signOut());
     }
