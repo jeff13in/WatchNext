@@ -34,6 +34,9 @@ public class TmdbMovie {
     @SerializedName("media_type")
     private String mediaType; // "movie", "tv", "person" (multi-search only)
 
+    @SerializedName("profile_path")
+    private String profilePath; // people results
+
     // Combined genre ID → name map (movie + TV genres)
     private static final Map<Integer, String> GENRE_MAP = new HashMap<>();
     static {
@@ -67,7 +70,9 @@ public class TmdbMovie {
     }
 
     public String getPosterUrl() {
-        String path = (posterPath != null && !posterPath.isEmpty()) ? posterPath : backdropPath;
+        String path = (posterPath != null && !posterPath.isEmpty()) ? posterPath
+                    : (profilePath != null && !profilePath.isEmpty()) ? profilePath
+                    : backdropPath;
         if (path == null || path.isEmpty()) return null;
         return "https://image.tmdb.org/t/p/w500" + path;
     }

@@ -13,6 +13,7 @@ import androidx.appcompat.widget.SearchView;
 import androidx.fragment.app.Fragment;
 import androidx.recyclerview.widget.GridLayoutManager;
 import androidx.recyclerview.widget.RecyclerView;
+import com.google.android.material.chip.ChipGroup;
 import java.util.ArrayList;
 import java.util.List;
 import retrofit2.Call;
@@ -22,7 +23,13 @@ import retrofit2.Response;
 public class SearchFragment extends Fragment {
 
     private MovieAdapter adapter;
-    private TextView tvSearchLabel;
+    private View layoutEmptyState;
+    private RecyclerView rv;
+    private TextView tvEmptyHint;
+
+    // "movie", "tv", or "person"
+    private String selectedCategory = "movie";
+    private String currentQuery = "";
 
     @Nullable
     @Override
@@ -36,69 +43,58 @@ public class SearchFragment extends Fragment {
     public void onViewCreated(@NonNull View view, @Nullable Bundle savedInstanceState) {
         super.onViewCreated(view, savedInstanceState);
 
-        tvSearchLabel = view.findViewById(R.id.tv_search_label);
+        layoutEmptyState = view.findViewById(R.id.layout_empty_state);
+        tvEmptyHint      = view.findViewById(R.id.tv_empty_hint);
+        rv               = view.findViewById(R.id.rv_search_results);
 
-        RecyclerView rv = view.findViewById(R.id.rv_search_results);
         rv.setLayoutManager(new GridLayoutManager(requireContext(), 2));
         adapter = new MovieAdapter(new ArrayList<>(), movie -> {
+            if ("person".equals(movie.getMediaType())) {
+                Toast.makeText(requireContext(), movie.getDisplayTitle(), Toast.LENGTH_SHORT).show();
+                return;
+            }
             Intent intent = new Intent(requireContext(), MovieDetailActivity.class);
             intent.putExtra("movie_id", movie.getId());
             String mediaType = movie.getMediaType();
-            if (mediaType == null || mediaType.isEmpty()) {
-                mediaType = "movie";
-            }
-            intent.putExtra("media_type", mediaType);
+            intent.putExtra("media_type", (mediaType == null || mediaType.isEmpty()) ? "movie" : mediaType);
             startActivity(intent);
         });
         rv.setAdapter(adapter);
 
-        loadDefault();
+        // Category chips
+        ChipGroup chipGroup = view.findViewById(R.id.chipgroup_category);
+        chipGroup.setOnCheckedStateChangeListener((group, checkedIds) -> {
+            if (checkedIds.isEmpty()) return;
+            int id = checkedIds.get(0);
+            if      (id == R.id.chip_movies) { selectedCategory = "movie";  updateEmptyHint(); }
+            else if (id == R.id.chip_tv)     { selectedCategory = "tv";     updateEmptyHint(); }
+            else if (id == R.id.chip_people) { selectedCategory = "person"; updateEmptyHint(); }
+            if (!currentQuery.isEmpty()) search(currentQuery);
+        });
 
+        // Search view
         SearchView searchView = view.findViewById(R.id.search_all);
         searchView.setOnQueryTextListener(new SearchView.OnQueryTextListener() {
             @Override
             public boolean onQueryTextSubmit(String query) {
-                if (tvSearchLabel != null) tvSearchLabel.setText("Results");
-                search(query);
+                currentQuery = query.trim();
+                if (!currentQuery.isEmpty()) search(currentQuery);
                 return true;
             }
 
             @Override
             public boolean onQueryTextChange(String newText) {
-                if (newText.isEmpty()) {
-                    loadDefault();
-                } else if (newText.length() >= 2) {
-                    if (tvSearchLabel != null) tvSearchLabel.setText("Results");
-                    search(newText);
+                currentQuery = newText.trim();
+                if (currentQuery.isEmpty()) {
+                    showEmptyState();
+                } else if (currentQuery.length() >= 2) {
+                    search(currentQuery);
                 }
                 return true;
             }
         });
-    }
 
-    private void loadDefault() {
-        if (tvSearchLabel != null) tvSearchLabel.setText("Popular");
-        TmdbClient.getService().getPopularMovies().enqueue(new Callback<TmdbResponse>() {
-            @Override
-            public void onResponse(@NonNull Call<TmdbResponse> call,
-                                   @NonNull Response<TmdbResponse> response) {
-                if (!isAdded()) return;
-                if (response.isSuccessful() && response.body() != null) {
-                    List<TmdbMovie> results = response.body().getResults();
-                    for (TmdbMovie item : results) {
-                        if (item.getMediaType() == null || item.getMediaType().isEmpty()) {
-                            item.setMediaType("movie");
-                        }
-                    }
-                    adapter.updateMovies(results);
-                }
-            }
-
-            @Override
-            public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                // silent fail for default content
-            }
-        });
+        showEmptyState();
     }
 
     private void search(String query) {
@@ -107,16 +103,19 @@ public class SearchFragment extends Fragment {
             public void onResponse(@NonNull Call<TmdbResponse> call,
                                    @NonNull Response<TmdbResponse> response) {
                 if (!isAdded()) return;
-
                 if (response.isSuccessful() && response.body() != null) {
-                    List<TmdbMovie> results = new ArrayList<>();
+                    List<TmdbMovie> filtered = new ArrayList<>();
                     for (TmdbMovie item : response.body().getResults()) {
-                        String type = item.getMediaType();
-                        if ("movie".equals(type) || "tv".equals(type)) {
-                            results.add(item);
+                        if (selectedCategory.equals(item.getMediaType())) {
+                            filtered.add(item);
                         }
                     }
-                    adapter.updateMovies(results);
+                    if (filtered.isEmpty()) {
+                        tvEmptyHint.setText("No results found for "" + query + """);
+                        showEmptyState();
+                    } else {
+                        showResults(filtered);
+                    }
                 } else {
                     Toast.makeText(requireContext(), "Search failed", Toast.LENGTH_SHORT).show();
                 }
@@ -124,10 +123,30 @@ public class SearchFragment extends Fragment {
 
             @Override
             public void onFailure(@NonNull Call<TmdbResponse> call, @NonNull Throwable t) {
-                if (isAdded()) {
-                    Toast.makeText(requireContext(), "Search failed", Toast.LENGTH_SHORT).show();
-                }
+                if (isAdded()) Toast.makeText(requireContext(), "Search failed", Toast.LENGTH_SHORT).show();
             }
         });
+    }
+
+    private void showEmptyState() {
+        layoutEmptyState.setVisibility(View.VISIBLE);
+        rv.setVisibility(View.GONE);
+        updateEmptyHint();
+    }
+
+    private void showResults(List<TmdbMovie> results) {
+        layoutEmptyState.setVisibility(View.GONE);
+        rv.setVisibility(View.VISIBLE);
+        adapter.updateMovies(results);
+    }
+
+    private void updateEmptyHint() {
+        if (currentQuery.isEmpty()) {
+            switch (selectedCategory) {
+                case "tv":     tvEmptyHint.setText("Search for a TV show…");  break;
+                case "person": tvEmptyHint.setText("Search for a person…");   break;
+                default:       tvEmptyHint.setText("Search for a movie or show…"); break;
+            }
+        }
     }
 }
