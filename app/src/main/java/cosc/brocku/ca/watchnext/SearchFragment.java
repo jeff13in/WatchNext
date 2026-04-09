@@ -111,7 +111,7 @@ public class SearchFragment extends Fragment {
                         }
                     }
                     if (filtered.isEmpty()) {
-                        tvEmptyHint.setText("No results found for "" + query + """);
+                        tvEmptyHint.setText("No results found for \"" + query + "\"");
                         showEmptyState();
                     } else {
                         showResults(filtered);
