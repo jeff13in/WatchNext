@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/drawer_profile"
+        android:icon="@drawable/ic_person"
+        android:title="Profile" />
+    <item
+        android:id="@+id/drawer_playlists"
+        android:icon="@drawable/ic_playlist"
+        android:title="Playlists" />
+    <item
+        android:id="@+id/drawer_share_lists"
+        android:icon="@drawable/ic_share"
+        android:title="Share Lists" />
+    <item
+        android:id="@+id/drawer_feedback"
+        android:icon="@drawable/ic_feedback"
+        android:title="Liked / Disliked" />
+    <item
+        android:id="@+id/drawer_preferences"
+        android:icon="@drawable/ic_preferences"
+        android:title="Preferences" />
+</menu>

@@ -1,0 +1,21 @@
+<resources>
+    <string name="app_name">WatchNext</string>
+    <string name="sign_in">Sign In</string>
+    <string name="sign_up">Sign Up</string>
+    <string name="email">Email</string>
+    <string name="password">Password</string>
+    <string name="confirm_password">Confirm Password</string>
+    <string name="search">Search</string>
+    <string name="profile">Profile</string>
+    <string name="movies">Movies</string>
+    <string name="tv_shows">TV Shows</string>
+    <string name="current">Current</string>
+    <string name="set_new">Set New</string>
+    <string name="save">Save</string>
+    <string name="watch_history">Watch History</string>
+    <string name="recommended">Recommended for you:</string>
+    <string name="search_placeholder">Search movies and shows…</string>
+    <string name="add_playlist">Add Playlist</string>
+    <string name="playlist_name_hint">Playlist name</string>
+    <string name="track_discover_watch">Track. Discover. Watch.</string>
+</resources>

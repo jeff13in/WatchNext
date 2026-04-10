@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Movie Detail screen — DARK mode overrides -->
+    <color name="detail_bg">#121218</color>
+    <color name="detail_surface">#1E1E2E</color>
+    <color name="detail_text_secondary">#9E9EAD</color>
+    <color name="detail_divider">#2A2A3E</color>
+    <color name="detail_rating_gold">#FFD700</color>
+    <color name="detail_bg_transparent">#00121218</color>
+</resources>
